@@ -1,0 +1,29 @@
+server:
+  port: 8080 # 项目启动端口
+
+spring:
+  profiles:
+    active: dev
+  # 引入本地密钥文件。该文件已加入 .gitignore，不随源码分发，里面存放 api-key 等敏感配置。
+  # optional 前缀表示文件不存在时也能正常启动，不会因为缺少密钥文件而启动失败。
+  #
+  # ⚠️ 配置优先级（高 → 低）：
+  #     application-dev.yml  >  application-secret.yml（被导入）  >  application.yml（本文件）
+  # 因此，凡是「需要允许本地覆盖、又不该进版本库」的配置（如专属网关地址、本机存储目录），
+  # 默认值要写在本文件，再由 application-secret.yml 覆盖；
+  # 如果写进 application-dev.yml，就会把 application-secret.yml 里的同名配置压住，导致覆盖失效。
+  config:
+    import: optional:classpath:application-secret.yml
+  ai:
+    openai:
+      # OpenAI 兼容接口地址，默认使用阿里云百炼公共网关。
+      # 若使用专属部署，请在 application-secret.yml 中覆盖本项。
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+
+# Markdown 知识库文件落盘目录。相对路径基于启动目录，也可填绝对路径（Windows 用双反斜杠）。
+# 想在本机固定到某个目录、又不希望写进版本库，可在 application-secret.yml 中覆盖本项。
+customer-service:
+  md-storage-path: ./data/md-storage
+
+logging:
+  config: classpath:log4j2.xml # 设置日志配置文件路径

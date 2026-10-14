@@ -1,0 +1,29 @@
+### 敏感配置（绝对不要提交） ###
+src/main/resources/application-secret.yml
+*.env
+.env
+.env.local
+
+### 构建产物 ###
+target/
+*.class
+*.jar
+*.war
+
+### 日志 ###
+logs/
+*.log
+
+### IDE ###
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+### 系统 ###
+.DS_Store
+Thumbs.db
