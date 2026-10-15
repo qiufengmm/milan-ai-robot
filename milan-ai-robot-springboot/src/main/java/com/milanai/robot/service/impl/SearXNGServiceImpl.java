@@ -43,7 +43,7 @@ public class SearXNGServiceImpl implements SearXNGService {
         HttpUrl httpUrl = HttpUrl.parse(searxngUrl).newBuilder()
                 .addQueryParameter("q", query) // 设置搜索关键词
                 .addQueryParameter("format", "json") // 指定返回 JSON 格式
-                .addQueryParameter("engines", "wolframalpha,presearch,seznam,mwmbl,encyclosearch,bpb,mojeek,right dao,wikimini,crowdview,searchmysite,bing,naver,360search") // 指定聚合的目标搜索引擎（配置本地网络能够访问的通的搜索引擎）
+                .addQueryParameter("engines", "bing,sogou") // 指定聚合的目标搜索引擎。只保留国内实际可连通、且有结果的引擎：实测 wolframalpha / presearch / seznam / mwmbl / encyclosearch / bpb / mojeek / crowdview / searchmysite / naver / quark / baidu / duckduckgo / brave / google 均无法连通，SearXNG 会一直等到各自超时，仅查询阶段就占了 12s+；360search 虽能连通但快速失败、不返回结果。bing（约 0.2s、10 条）与 sogou（约 1.3s、9 条）组合后查询阶段降到 0.67s，且 sogou 能补上 bing 抓取失败的页面，抓取成功率从 80% 提升到 97%
                 .build();
 
         // 创建 HTTP GET 请求

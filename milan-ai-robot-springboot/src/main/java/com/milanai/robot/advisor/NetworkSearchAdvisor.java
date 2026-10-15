@@ -67,18 +67,34 @@ public class NetworkSearchAdvisor implements StreamAdvisor {
         Prompt prompt = chatClientRequest.prompt();
         UserMessage userMessage = prompt.getUserMessage();
 
+        // ---- 耗时统计：分段记录，便于定位是 SearXNG 慢还是抓网页慢 ----
+        long totalStart = System.currentTimeMillis();
+
         // 调用 SearXNG 获取搜索结果
         List<SearchResultDTO> searchResults = searXNGService.search(userMessage.getText());
+        long searchCost = System.currentTimeMillis() - totalStart;
 
         // 并发请求，获取搜索结果页面的内容
+        long fetchStart = System.currentTimeMillis();
         CompletableFuture<List<SearchResultDTO>> resultsFuture = searchResultContentFetcherService.batchFetch(searchResults, 7, TimeUnit.SECONDS);
 
         List<SearchResultDTO> results = resultsFuture.join();
+        long fetchCost = System.currentTimeMillis() - fetchStart;
 
         // 过滤掉获取失败的结果
         List<SearchResultDTO> successfulResults = results.stream()
                 .filter(r -> StringUtils.isNotBlank(r.getContent()))
                 .toList();
+
+        // 清洗后正文的总字符数，用于衡量喂给大模型的上下文规模
+        int cleanedChars = successfulResults.stream()
+                .mapToInt(r -> r.getContent().length())
+                .sum();
+
+        log.info("## 联网搜索耗时: SearXNG 查询 {} ms（{} 条结果） | 并发抓取 + Jsoup 清洗 {} ms（成功 {} / {} 条） | 合计 {} ms | 清洗后正文 {} 字符",
+                searchCost, searchResults.size(),
+                fetchCost, successfulResults.size(), searchResults.size(),
+                searchCost + fetchCost, cleanedChars);
 
         // 构建搜索结果上下文信息
         String searchContext = buildContext(successfulResults);
