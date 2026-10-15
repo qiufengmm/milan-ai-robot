@@ -4,13 +4,20 @@ import com.google.common.collect.Lists;
 import com.milanai.robot.domain.dos.AiCustomerServiceMdStorageDO;
 import com.milanai.robot.domain.mapper.AiCustomerServiceMdStorageMapper;
 import com.milanai.robot.enums.AiCustomerServiceMdStatusEnum;
+import com.milanai.robot.enums.ResponseCodeEnum;
 import com.milanai.robot.event.AiCustomerServiceMdUploadedEvent;
+import com.milanai.robot.exception.BizException;
 import com.milanai.robot.reader.MarkdownReader;
+import com.milanai.robot.reader.PdfReader;
+import com.milanai.robot.reader.TxtReader;
+import com.milanai.robot.reader.WordReader;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.document.id.IdGenerator;
 import org.springframework.ai.document.id.JdkSha256HexIdGenerator;
+import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.FileSystemResource;
@@ -31,6 +38,12 @@ public class AiCustomerServiceMdUploadedListener {
 
     @Resource
     private MarkdownReader markdownReader;
+    @Resource
+    private PdfReader pdfReader;
+    @Resource
+    private WordReader wordReader;
+    @Resource
+    private TxtReader txtReader;
     @Resource
     private VectorStore vectorStore;
     @Resource
@@ -68,9 +81,17 @@ public class AiCustomerServiceMdUploadedListener {
                 org.springframework.core.io.Resource resource = new FileSystemResource(filePath);
 
                 // 解析为 Document 集合
-                List<Document> documents = markdownReader.loadMarkdown(resource, metadatas);
+                // 根据文件扩展名，使用对应格式的读取器（Markdown / PDF / Word / TXT）
+                String originalFileName = String.valueOf(metadatas.get("originalFileName"));
+                List<Document> documents = readDocuments(originalFileName, resource, metadatas);
 
-                log.info("## documents: {}", documents);
+                // 各格式的初始读取粒度不一样：Markdown 已按水平线切成问答块，
+                // PDF 是按页、Word / TXT 是整篇，后两者可能是一个很大的文档块，
+                // 这里再用 Token 切分器按目标大小（默认 800 Token）二次切分，
+                // 避免大块文本直接向量化导致语义被"平均化"、检索命中率下降。
+                documents = new TokenTextSplitter().apply(documents);
+
+                log.info("## Token 切分完成, 切分后文档块数量: {}", documents.size());
 
                 // 防止重复添加相同文档到 PGVector 中
                 // 这里仅对正文内容做哈希，同一份文件重复上传才能命中同一个 ID，从而被覆盖而非新增
@@ -116,6 +137,30 @@ public class AiCustomerServiceMdUploadedListener {
                     .updateTime(LocalDateTime.now())
                     .build());
         }
+    }
+
+    /**
+     * 按文件扩展名，分别使用对应格式的读取器（Markdown / PDF / Word / TXT）
+     *
+     * @param originalFileName 上传时的原始文件名
+     * @param resource         文件资源
+     * @param metadatas        业务元数据（文件存储 ID、文件名等）
+     * @return 解析后的文档集合
+     */
+    private List<Document> readDocuments(String originalFileName,
+                                         org.springframework.core.io.Resource resource,
+                                         Map<String, Object> metadatas) {
+        // 提取文件扩展名，并统一转小写（如 “产品FAQ.PDF” -> “pdf”）
+        String fileExtension = StringUtils.substringAfterLast(originalFileName, ".").toLowerCase();
+
+        return switch (fileExtension) {
+            case "md", "markdown" -> markdownReader.loadMarkdown(resource, metadatas);
+            case "pdf" -> pdfReader.read(resource, metadatas);
+            case "doc", "docx" -> wordReader.read(resource, metadatas);
+            case "txt" -> txtReader.read(resource, metadatas);
+            // 不支持的文件格式，直接抛出业务异常
+            default -> throw new BizException(ResponseCodeEnum.UNSUPPORTED_FILE_TYPE);
+        };
     }
 }
 

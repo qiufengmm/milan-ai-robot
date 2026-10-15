@@ -107,6 +107,18 @@
             <artifactId>spring-ai-markdown-document-reader</artifactId>
         </dependency>
 
+        <!-- 读取 PDF（底层使用 Apache PDFBox） -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-pdf-document-reader</artifactId>
+        </dependency>
+
+        <!-- 基于 Apache Tika 读取 Word 等多种格式文档 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-tika-document-reader</artifactId>
+        </dependency>
+
         <!-- OKHttp-->
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>

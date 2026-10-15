@@ -18,7 +18,7 @@
       <a-divider />
     </div>
 
-    <a-button type="primary" class="mb-5" :icon="h(UploadOutlined)" @click="triggerFileUpload" :loading="uploadBtnLoading">上传 Markdown 文件</a-button>
+    <a-button type="primary" class="mb-5" :icon="h(UploadOutlined)" @click="triggerFileUpload" :loading="uploadBtnLoading">上传问答文件</a-button>
 
     <!-- 隐藏的 file input 元素 -->
     <input
@@ -26,7 +26,7 @@
       ref="fileInput"
       @change="handleFileSelect"
       class="hidden"
-      accept=".md,.markdown,text/markdown"
+      accept=".md,.markdown,text/markdown,.pdf,.doc,.docx,.txt"
     />
 
     <a-table :dataSource="dataSource" :columns="columns" :pagination="pagination" @change="handleTableChange" :loading="loading">

@@ -50,6 +50,12 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CustomerServiceImpl implements CustomerService {
 
+    /**
+     * 知识库支持的文件格式白名单（扩展名统一小写）
+     */
+    private static final List<String> SUPPORTED_FILE_EXTENSIONS =
+            List.of("md", "markdown", "pdf", "doc", "docx", "txt");
+
     @Value("${customer-service.md-storage-path}")
     private String mdStoragePath;
 
@@ -78,9 +84,9 @@ public class CustomerServiceImpl implements CustomerService {
         // 获取原始文件名（去除空格）
         String originalFilename = StringUtils.trimToEmpty(file.getOriginalFilename());
 
-        // 验证文件类型，仅支持 Markdown
-        if (StringUtils.isBlank(originalFilename) || !isMarkdownFile(originalFilename)) {
-            throw new BizException(ResponseCodeEnum.ONLY_SUPPORT_MARKDOWN);
+        // 验证文件类型：只支持白名单内的格式（Markdown / PDF / Word / TXT），不合格直接拒绝上传
+        if (StringUtils.isBlank(originalFilename) || !isSupportedFileType(originalFilename)) {
+            throw new BizException(ResponseCodeEnum.UNSUPPORTED_FILE_TYPE);
         }
 
         // 已落盘的文件路径，以及「文件是否已写入」「记录是否已入库」两个进度标记，
@@ -229,16 +235,16 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     /**
-     * 验证文件是否为 Markdown 格式
+     * 验证文件是否为知识库支持的格式（Markdown / PDF / Word / TXT）
      */
-    private boolean isMarkdownFile(String filename) {
+    private boolean isSupportedFileType(String filename) {
         if (StringUtils.isBlank(filename)) {
             return false;
         }
 
-        // 获取文件扩展名
-        String extension = FilenameUtils.getExtension(filename);
-        return StringUtils.equalsIgnoreCase(extension, "md");
+        // 获取文件扩展名，并统一转小写（避免 .PDF 和 .pdf 被当成不同格式）
+        String extension = FilenameUtils.getExtension(filename).toLowerCase();
+        return SUPPORTED_FILE_EXTENSIONS.contains(extension);
     }
 
     /**
