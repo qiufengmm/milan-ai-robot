@@ -43,7 +43,19 @@ public class SearXNGServiceImpl implements SearXNGService {
         HttpUrl httpUrl = HttpUrl.parse(searxngUrl).newBuilder()
                 .addQueryParameter("q", query) // 设置搜索关键词
                 .addQueryParameter("format", "json") // 指定返回 JSON 格式
-                .addQueryParameter("engines", "bing,sogou") // 指定聚合的目标搜索引擎。只保留国内实际可连通、且有结果的引擎：实测 wolframalpha / presearch / seznam / mwmbl / encyclosearch / bpb / mojeek / crowdview / searchmysite / naver / quark / baidu / duckduckgo / brave / google 均无法连通，SearXNG 会一直等到各自超时，仅查询阶段就占了 12s+；360search 虽能连通但快速失败、不返回结果。bing（约 0.2s、10 条）与 sogou（约 1.3s、9 条）组合后查询阶段降到 0.67s，且 sogou 能补上 bing 抓取失败的页面，抓取成功率从 80% 提升到 97%
+                .addQueryParameter("engines", "bing,sogou wechat") // 指定聚合的目标搜索引擎。逐个引擎实测（用 unresponsive_engines 字段区分"真失败"与"引擎名无效被兜底"）后只保留这两个：
+                //   bing         — 约 0.2s 返回 10 条，稳定，是唯一的通用网页来源
+                //   sogou wechat — 约 0.25s 返回 10 条，搜狗微信搜索，中文技术公众号文章质量好，
+                //                  且结果 URL 同域名，抓取时连接可复用，把整体成功率从 83% 拉到 97%
+                // 被排除的原因：
+                //   sogou / baidu / quark — 国内网站本身可访问，但 SearXNG 抓取会触发反爬验证码，
+                //                           随后被熔断为 "Suspended: CAPTCHA"，配了等于没配（这也是原著
+                //                           配置里没放百度的原因，并非遗漏）
+                //   360search — 能连通但快速失败、不返回结果
+                //   presearch / seznam / mwmbl / encyclosearch / bpb / mojeek / crowdview / searchmysite /
+                //   naver / yandex / fireball / mozhi / wolframalpha —— 实测返回 0 条
+                //   另外原著配置里的 "right dao" 在 SearXNG 中并不存在，指定它会被兜底成默认引擎集，
+                //   表现为"有结果"的假象，实际返回的是 bing/brave/google 等的混合结果
                 .build();
 
         // 创建 HTTP GET 请求
