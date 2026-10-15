@@ -80,8 +80,11 @@
         <a-input v-model:value="editMarkdownRecord.updateTime" disabled/>
       </a-form-item>
       <a-form-item label="备注" name="remark">
+        <!-- maxlength 必须与数据库 remark 字段长度、后端 @Size(max = ...) 保持一致（三处对齐为 500），
+             否则用户在输入框里能一直打字，点了提交才被后端拦下来报错。 -->
         <a-textarea v-model:value="editMarkdownRecord.remark"
           placeholder="请输入备注信息（留空即可清空原有备注）"
+          :maxlength="500"
           :auto-size="{ minRows: 5, maxRows: 10 }"
           allow-clear show-count />
       </a-form-item>

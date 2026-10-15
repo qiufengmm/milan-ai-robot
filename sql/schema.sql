@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS t_ai_customer_service_md_storage
     file_path          VARCHAR(500)  NOT NULL,               -- 本地绝对存储路径
     file_size          BIGINT        NOT NULL,               -- 文件字节数
     status             SMALLINT      DEFAULT 0,              -- 0=待处理 1=向量化中 2=已完成 3=失败
-    remark             VARCHAR(200),                         -- 备注
+    remark             VARCHAR(500),                         -- 备注
     create_time        TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
     update_time        TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT t_ai_customer_service_md_storage_pkey PRIMARY KEY (id)
