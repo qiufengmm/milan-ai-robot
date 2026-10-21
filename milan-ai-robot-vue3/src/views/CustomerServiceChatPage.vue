@@ -60,7 +60,7 @@
 
         <!-- 提问输入框 -->
         <ChatInputBox v-model="chatMessage" containerClass="sticky max-w-3xl mx-auto bg-white bottom-8 left-0 w-full"
-          @sendMessage="sendMessage" placeholder="向米兰AI 智能客服询问" :showModelDropdown="false" :showNetworkSearch="false"/>
+          @sendMessage="sendMessage" placeholder="咨询商品、配送、退换货或保修问题……" :showModelDropdown="false" :showNetworkSearch="false"/>
 
         <!-- 抽屉：客服问答文件管理（搜索、上传、表格、编辑/删除模态框都在组件内部） -->
         <MarkdownFileDrawer v-model:open="settingsDrawerOpen" />
@@ -99,7 +99,7 @@ const chatMessage = ref(history.state?.firstMessage || '')
 const chatContainer = ref(null)
 
 // 聊天记录，默认给一个欢迎语
-const chatList = ref([{ role: 'assistant', content: '你好呀！我是米兰AI 智能客服，基于 Spring AI 开发，欢迎向我咨询相关问题哈 😁', loading: false }])
+const chatList = ref([{ role: 'assistant', content: '你好，我是米兰数码商城智能客服，可以帮你了解商品参数、配送规则、退换货和保修政策。请告诉我商品名称和想咨询的问题。', loading: false }])
 
 
 // 对话 ID

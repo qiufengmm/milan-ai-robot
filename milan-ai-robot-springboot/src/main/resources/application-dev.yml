@@ -18,7 +18,10 @@ spring:
         table-name: t_vector_store # 向量表名称
   datasource:
     driver-class-name: com.p6spy.engine.spy.P6SpyDriver # 数据库驱动类名
-    url: jdbc:p6spy:postgresql://localhost:5432/robot # 数据库连接 URL
+    # 电商演示库：milan_ecommerce，表结构与 robot 库完全一致（均由 sql/schema.sql 创建）。
+    # 单独建库是为了让「米兰数码商城」的电商知识库与原有的课程/项目知识互不干扰。
+    # 想回到原库演示，把库名改回 robot 即可，原库数据未被清空或修改。
+    url: jdbc:p6spy:postgresql://localhost:5432/milan_ecommerce # 数据库连接 URL
     username: postgres # 数据库用户名
     password: postgres # 数据库密码
     hikari: # HikariCP 连接池配置
@@ -43,5 +46,5 @@ searxng: # SearXNG 搜索引擎配置
 customer-service:
   # md-storage-path 的默认值在 application.yml 中（./data/md-storage）。
   # 想在本机固定到其他目录，请在 application-secret.yml 中覆盖（本文件优先级更高，写在这里会让覆盖失效）。
-  model: deepseek-v4.1-flash # 模型名称
+  model: deepseek-v4-flash-0731 # 模型名称
   temperature: 0.0 # 温度值

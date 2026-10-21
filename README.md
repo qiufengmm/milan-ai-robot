@@ -3,7 +3,7 @@
 一个基于 **Spring Boot 4 + Spring AI 2 + Vue 3** 的 AI 机器人项目，包含两大能力：
 
 - **智能对话**：多轮会话、SSE 流式输出、思考过程（推理内容）透出、历史会话管理、联网搜索
-- **智能客服**：上传 Markdown 知识库 → 自动向量化入库 → 基于 RAG 的流式问答，配套文件管理后台
+- **智能客服**：上传 Markdown / PDF / Word / TXT 知识库 → 自动向量化入库 → 基于 RAG 的流式问答，配套文件管理后台。当前演示场景为「米兰数码商城」电商客服：商品参数、选购建议、配送规则、退换货、发票、保修与常见售后问题
 
 后端使用 Spring AI 对接 OpenAI 兼容接口（示例为阿里云百炼），向量存储使用 PostgreSQL + pgvector。
 
@@ -110,6 +110,15 @@ psql -U postgres -c "CREATE DATABASE robot;"
 # 建扩展 + 建表
 psql -U postgres -d robot -f sql/schema.sql
 ```
+
+电商客服演示使用**独立库**，表结构与 `robot` 完全一致，避免电商知识库与课程/项目知识混在一起影响检索：
+
+```bash
+psql -U postgres -c "CREATE DATABASE milan_ecommerce;"
+psql -U postgres -d milan_ecommerce -f sql/schema.sql
+```
+
+`application-dev.yml` 中 `datasource.url` 默认已指向 `milan_ecommerce`；想回到原来的通用知识库演示，把库名改回 `robot` 即可（原库数据不受影响）。
 
 ### 2. 配置密钥
 
@@ -244,11 +253,19 @@ npm run dev
 
 `test-data/` 目录下提供了可直接上传的 Markdown 知识库文件：
 
+- `ecommerce/`：**电商客服演示知识库**（米兰数码商城，虚构），10 个文件共 90 个问答块，覆盖商品参数、支付发票、配送物流、退换货、保修与人工服务，配套 60 道评测题；资料清单、入库数据和评测结果见 `test-data/ecommerce/README.md`
 - `米兰AI项目.md`：本项目自助知识库，20 问，覆盖技术栈、文件格式、处理状态、幂等、启动、配置优先级、数据表、检索原理、删除与强制删除、备注规则、向量维度、SearXNG、SSE 格式差异、会话管理、密钥与端口排查
-- `customer-service-faq.md`：虚构的客服问答知识库
+- `customer-service-faq.md`：虚构的客服问答知识库（通用版，非电商场景）
 - `pagination-test/`：10 个用于验证分页的 Markdown 文件
 
-上传方式：进入「智能客服」页面 → 点击上传按钮选择文件。
+上传方式：进入「智能客服」页面 → 点击上传按钮选择文件；或直接调用接口：
+
+```bash
+curl -X POST -F "file=@test-data/ecommerce/01-商品参数与选购.md" \
+  http://localhost:8080/customer-service/md/upload
+```
+
+上传成功返回文件记录 ID，解析和向量化在后台执行；请在文件列表确认状态为「已完成」。空白文档或无法提取文字的扫描版 PDF 会标为失败，扫描件需先做 OCR。每次上传有独立向量归属，删除一个文件不会删除其他文件中相同正文的知识块。
 
 ---
 
@@ -259,3 +276,6 @@ npm run dev
 3. **`application-secret.yml` 不要提交**：`.gitignore` 已做忽略，提交前可用 `git status` 复核。
 4. **删除知识库文件会同时清理三处**：数据库记录、`t_vector_store` 中对应的向量、本地磁盘文件。
 5. **联网搜索依赖 SearXNG**：未启动 SearXNG 时，联网相关能力会降级，不影响基础问答。
+6. **客服链路只做「检索 + 拼提示词」**：`/customer-service/chat/completion` 没有挂对话记忆 Advisor，也没有消息落库，请求里的 `chatId` 目前未参与业务；因此客服问答是单轮的，刷新页面即丢失上下文。多轮记忆与消息持久化只在通用对话 `/chat/**` 上具备。
+7. **客服没有接入订单、物流、售后等业务接口**：只能回答知识库中的商品与政策问题，查不到订单状态，也不能发起退款、改地址、转人工。提示词中已要求模型明确说明这些限制，不编造查询结果。
+8. **提示词约束是回答策略，不是确定性校验**：它降低幻觉概率，但不等于政策规则引擎或幻觉拦截系统。
