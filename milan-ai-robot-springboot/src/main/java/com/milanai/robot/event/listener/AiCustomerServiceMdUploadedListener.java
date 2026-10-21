@@ -1,6 +1,7 @@
 package com.milanai.robot.event.listener;
 
 import com.google.common.collect.Lists;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.milanai.robot.domain.dos.AiCustomerServiceMdStorageDO;
 import com.milanai.robot.domain.mapper.AiCustomerServiceMdStorageMapper;
 import com.milanai.robot.enums.AiCustomerServiceMdStatusEnum;
@@ -67,16 +68,29 @@ public class AiCustomerServiceMdUploadedListener {
         // 元数据
         Map<String, Object> metadatas = event.getMetadatas();
 
-        // 更新存储文件的处理状态为 “向量化中”
-        aiCustomerServiceMdStorageMapper.updateById(AiCustomerServiceMdStorageDO.builder()
-                .id(id)
-                .status(AiCustomerServiceMdStatusEnum.VECTORIZING.getCode())
-                .updateTime(LocalDateTime.now())
-                .build());
+        boolean isSuccess = false;
+        try {
+            // 文件可能在异步任务开始前已被强制删除。
+            int updated = aiCustomerServiceMdStorageMapper.updateById(AiCustomerServiceMdStorageDO.builder()
+                    .id(id)
+                    .status(AiCustomerServiceMdStatusEnum.VECTORIZING.getCode())
+                    .updateTime(LocalDateTime.now())
+                    .build());
+            if (updated == 0) {
+                return;
+            }
 
-        // 编程式事务
-        boolean isSuccess = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
-            try {
+            // 在整个向量事务内锁住归属文件。删除接口的 deleteById 会等待事务结束，
+            // 已删除的文件则直接跳过，避免后台任务留下没有归属的向量。
+            isSuccess = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+                AiCustomerServiceMdStorageDO owner = aiCustomerServiceMdStorageMapper.selectOne(
+                        Wrappers.<AiCustomerServiceMdStorageDO>lambdaQuery()
+                                .eq(AiCustomerServiceMdStorageDO::getId, id)
+                                .last("FOR UPDATE"));
+                if (owner == null) {
+                    return true;
+                }
+
                 // 读取文件
                 org.springframework.core.io.Resource resource = new FileSystemResource(filePath);
 
@@ -89,14 +103,22 @@ public class AiCustomerServiceMdUploadedListener {
                 // PDF 是按页、Word / TXT 是整篇，后两者可能是一个很大的文档块，
                 // 这里再用 Token 切分器按目标大小（默认 800 Token）二次切分，
                 // 避免大块文本直接向量化导致语义被"平均化"、检索命中率下降。
-                documents = new TokenTextSplitter().apply(documents);
+                documents = TokenTextSplitter.builder()
+                        .withMinChunkLengthToEmbed(0) // 保留有意义的短文本，空白块仍由 splitter 排除
+                        .build()
+                        .apply(documents);
+
+                if (documents.isEmpty()) {
+                    throw new IllegalArgumentException("文件未提取到可检索文本；扫描版 PDF 需要先进行 OCR");
+                }
 
                 log.info("## Token 切分完成, 切分后文档块数量: {}", documents.size());
 
-                // 防止重复添加相同文档到 PGVector 中
-                // 这里仅对正文内容做哈希，同一份文件重复上传才能命中同一个 ID，从而被覆盖而非新增
+                // 同一文件记录重试时保持幂等；不同上传记录即使正文相同也拥有独立向量，
+                // 防止 mdStorageId 被覆盖，以及删除一个文件时误删另一个文件的知识。
                 JdkSha256HexIdGenerator jdkSha256HexIdGenerator = new JdkSha256HexIdGenerator();
-                IdGenerator contentHashIdGenerator = contents -> jdkSha256HexIdGenerator.generateId(contents[0]);
+                IdGenerator contentHashIdGenerator = contents ->
+                        jdkSha256HexIdGenerator.generateId(id + ":" + contents[0]);
 
                 // 重建 Document，将随机 ID 替换为基于内容哈希的确定性 ID
                 List<Document> documentsWithStableId = documents.stream()
@@ -109,33 +131,39 @@ public class AiCustomerServiceMdUploadedListener {
 
                 // 通过向量模型，将文档分批向量化并写入 PGVector
                 // 注意：向量模型服务端限制单次批量向量化数量不能超过 10 条，这里按 10 条一批分批写入
-                // 相同内容永远落到同一个 ID 上，天然幂等，重复上传不会产生重复数据
+                // 同一文件记录中的相同内容落到同一个 ID，后台任务重试不会产生重复数据
                 for (List<Document> batch : Lists.partition(documentsWithStableId, 10)) {
                     vectorStore.add(batch);
                 }
 
                 // 更新存储文件的处理状态为 “已完成”
-                aiCustomerServiceMdStorageMapper.updateById(AiCustomerServiceMdStorageDO.builder()
+                int completed = aiCustomerServiceMdStorageMapper.updateById(AiCustomerServiceMdStorageDO.builder()
                         .id(id)
                         .status(AiCustomerServiceMdStatusEnum.COMPLETED.getCode())
                         .updateTime(LocalDateTime.now())
                         .build());
+                if (completed != 1) {
+                    throw new IllegalStateException("文件记录已不存在，回滚本次向量写入");
+                }
 
                 return true;
-            } catch (Exception ex) {
-                log.error("## Markdown 文件向量化失败: {}", event, ex);
-                status.setRollbackOnly(); // 标记事务为回滚
-                return false;
-            }
-        }));
+            }));
+        } catch (Exception ex) {
+            // 覆盖解析、向量化以及事务创建/提交失败；事务模板会先回滚再进入这里。
+            log.error("## 问答文件向量化失败: {}", event, ex);
+        }
 
         // 若事务执行失败，更新存储文件的处理状态为 “失败”
         if (!isSuccess) {
-            aiCustomerServiceMdStorageMapper.updateById(AiCustomerServiceMdStorageDO.builder()
-                    .id(id)
-                    .status(AiCustomerServiceMdStatusEnum.FAILED.getCode())
-                    .updateTime(LocalDateTime.now())
-                    .build());
+            try {
+                aiCustomerServiceMdStorageMapper.updateById(AiCustomerServiceMdStorageDO.builder()
+                        .id(id)
+                        .status(AiCustomerServiceMdStatusEnum.FAILED.getCode())
+                        .updateTime(LocalDateTime.now())
+                        .build());
+            } catch (Exception ex) {
+                log.error("## 问答文件失败状态写入异常, id: {}", id, ex);
+            }
         }
     }
 
