@@ -57,3 +57,7 @@ test-data/ecommerce/eval/*backup*.sql
 .DS_Store
 Thumbs.db
 desktop.ini
+
+### ---------- bench 探针本地产物 ---------- ###
+bench/.classpath.txt
+bench/classes/
