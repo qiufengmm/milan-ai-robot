@@ -1,6 +1,7 @@
 <template>
   <!-- 抽屉：客服问答文件管理 -->
-  <a-drawer width="80%" title="客服问答文件管理" placement="right" :open="open" @close="handleClose">
+  <a-drawer width="80%" :title="`${knowledgeBase.name} · 文件管理`" placement="right" :open="open" @close="handleClose">
+    <a-alert message="文件处理完成且索引同步后才可完整检索。失败或等待同步的文件可在处理后重建索引。" type="info" show-icon class="mb-5" />
     <!-- 搜索区域 -->
     <div class="mb-5">
       <a-form layout="inline" :model="formState">
@@ -18,15 +19,18 @@
       <a-divider />
     </div>
 
-    <a-button type="primary" class="mb-5" :icon="h(UploadOutlined)" @click="triggerFileUpload" :loading="uploadBtnLoading">上传问答文件</a-button>
+    <div class="flex gap-3 mb-5">
+      <a-button type="primary" :disabled="uploading" :icon="h(UploadOutlined)" @click="triggerFileUpload">上传问答文件</a-button>
+      <a-button :loading="reindexing" @click="handleReindex">重建当前库索引</a-button>
+    </div>
 
-    <!-- 隐藏的 file input 元素 -->
+    <!-- 保留视频格式用于验证大文件分片/续传；视频无法向量化，处理结果会显示失败。 -->
     <input
       type="file"
       ref="fileInput"
       @change="handleFileSelect"
       class="hidden"
-      accept=".md,.markdown,text/markdown,.pdf,.doc,.docx,.txt"
+      accept=".md,.markdown,text/markdown,.pdf,.doc,.docx,.txt,.mp4,.mov,.avi"
     />
 
     <a-table :dataSource="dataSource" :columns="columns" :pagination="pagination" @change="handleTableChange" :loading="loading">
@@ -41,17 +45,20 @@
         <template v-else-if="column.key === 'status'">
           <StatusTag :status="record.status" />
         </template>
+        <template v-else-if="column.key === 'indexStatus'">
+          <IndexStatusTag :status="record.indexStatus" />
+        </template>
       </template>
     </a-table>
   </a-drawer>
 
-  <!-- 删除 Markdown 问答文件确认框 -->
+  <!-- 删除问答文件确认框 -->
   <a-modal v-model:open="deleteMarkdownModelOpen" width="400px" :centered=true title="永久删除问答文件" ok-text="确认" ok-type="danger" cancel-text="取消"
     :confirm-loading="deleteBtnLoading" @ok="handleDeleteMarkdownModelOk">
-    <p>是否确认删除此 Markdown 问答文件？</p>
+    <p>是否确认删除此问答文件？</p>
   </a-modal>
 
-  <!-- 编辑 Markdown 问答文件模态框 -->
+  <!-- 编辑问答文件模态框 -->
   <a-modal v-model:open="editMarkdownModelOpen" width="700px" :centered=true title="编辑问答文件" ok-text="提交" cancel-text="取消"
     :confirm-loading="editBtnLoading" @ok="handleEditMarkdownModelOk">
     <div class="mt-7"></div>
@@ -64,14 +71,17 @@
       <a-form-item label="ID" name="id">
         <a-input v-model:value="editMarkdownRecord.id" disabled/>
       </a-form-item>
-      <a-form-item label="文件名" name="originalFileName">
-        <a-input v-model:value="editMarkdownRecord.originalFileName" disabled/>
+      <a-form-item label="文件名" name="fileName">
+        <a-input v-model:value="editMarkdownRecord.fileName" disabled/>
       </a-form-item>
       <a-form-item label="文件大小" name="fileSize">
         <a-input v-model:value="editMarkdownRecord.fileSize" disabled/>
       </a-form-item>
       <a-form-item label="处理状态" name="status">
         <StatusTag :status="editMarkdownRecord.status" />
+      </a-form-item>
+      <a-form-item label="索引状态" name="indexStatus">
+        <IndexStatusTag :status="editMarkdownRecord.indexStatus" />
       </a-form-item>
       <a-form-item label="创建时间" name="createTime">
         <a-input v-model:value="editMarkdownRecord.createTime" disabled/>
@@ -90,19 +100,93 @@
       </a-form-item>
     </a-form>
   </a-modal>
+
+  <!-- 上传文件模态框 -->
+  <a-modal v-model:open="uploadFileInfoModelOpen" width="700px" :centered=true title="文件上传" :footer="null"
+    :mask-closable="!uploading" :closable="!uploading" :keyboard="!uploading">
+    <div class="mt-5"></div>
+    <!-- 文件信息 -->
+    <a-descriptions :column="1">
+      <a-descriptions-item label="所属知识库">{{ uploading ? uploadOwnerName : knowledgeBase.name }}</a-descriptions-item>
+      <a-descriptions-item label="文件名">{{ selectedFile?.name }}</a-descriptions-item>
+      <a-descriptions-item label="文件大小">{{ selectedFile ? filesize(selectedFile.size) : '-' }}</a-descriptions-item>
+      <a-descriptions-item label="文件 MD5">
+        <a-tag v-if="fileMd5" color="blue">{{ fileMd5 }}</a-tag>
+        <div v-else>
+          <a-spin size="small" /> 计算中...
+        </div>
+      </a-descriptions-item>
+      <a-descriptions-item label="分片数">
+        {{ totalChunks }} 片（每片 {{ filesize(CHUNK_SIZE) }}）
+      </a-descriptions-item>
+    </a-descriptions>
+
+    <div class="mt-5"></div>
+
+    <!-- 上传进度 -->
+    <a-card v-if="uploading || uploadProgress > 0" size="small" title="上传进度">
+      <a-progress
+        :percent="uploadProgress"
+        :status="uploadStatus"
+        :stroke-color="{
+          '0%': '#108ee9',
+          '100%': '#87d068',
+        }"
+      />
+      <a-alert
+        :message="statusText"
+        :type="alertType"
+        show-icon
+        style="margin-top: 16px"
+      />
+    </a-card>
+    <div class="mt-5"></div>
+
+    <!-- 上传按钮：MD5 算完之后才允许点 -->
+    <a-button
+      v-if="selectedFile && fileMd5"
+      type="primary"
+      size="large"
+      block
+      :loading="uploading"
+      :disabled="uploading"
+      @click="startUpload"
+    >
+      <template #icon>
+        <upload-outlined />
+      </template>
+      {{ uploading ? '上传中...' : '开始上传' }}
+    </a-button>
+  </a-modal>
 </template>
 
 <script setup>
 import { ref, reactive, computed, h, watch } from 'vue'
 import { UploadOutlined, SearchOutlined, RedoOutlined } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
+import { filesize } from 'filesize'
+import SparkMD5 from 'spark-md5'
 import StatusTag from './StatusTag.vue'
+import IndexStatusTag from './IndexStatusTag.vue'
+import { captureUploadContext, uploadAvailability } from './knowledgeScope.js'
+import { reindexKnowledgeBase } from '@/api/knowledgeBase'
 import {
   findMarkdownFilePageList,
-  uploadMarkdownFile,
+  checkFile,
+  uploadFileChunk,
+  mergeFileChunk,
   deleteMarkdownFile,
   updateMarkdownFile,
 } from '@/api/customerService'
+
+// 分片大小：2MB。
+// 必须小于后端 spring.servlet.multipart.max-file-size（当前 10MB），
+// 否则分片会被服务端直接拒掉（HTTP 413）。
+const CHUNK_SIZE = 2 * 1024 * 1024
+// 单批并发上传的分片数。太大容易把服务端连接池打满，太小又体现不出并发收益
+const MAX_CONCURRENT = 3
+// 单个分片的最大重试次数
+const MAX_RETRY = 3
 
 const props = defineProps({
   // 是否展示抽屉
@@ -110,14 +194,16 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  knowledgeBase: {
+    type: Object,
+    default: () => ({ id: 1, name: '米兰数码商城' }),
+  },
 })
 
-const emit = defineEmits(['update:open'])
+const emit = defineEmits(['update:open', 'upload-busy'])
 
 // 表格加载状态
 const loading = ref(false)
-// 上传按钮 Loading 动画
-const uploadBtnLoading = ref(false)
 // 删除确认框「确认」按钮 Loading
 const deleteBtnLoading = ref(false)
 // 编辑模态框「提交」按钮 Loading
@@ -133,8 +219,8 @@ const formState = reactive({
 const columns = ref([
   {
     title: '文件名称',
-    dataIndex: 'originalFileName',
-    key: 'originalFileName',
+    dataIndex: 'fileName',
+    key: 'fileName',
   },
   {
     title: '文件大小',
@@ -145,6 +231,11 @@ const columns = ref([
     title: '状态',
     dataIndex: 'status',
     key: 'status',
+  },
+  {
+    title: '索引同步',
+    dataIndex: 'indexStatus',
+    key: 'indexStatus',
   },
   {
     title: '创建时间',
@@ -185,7 +276,10 @@ const pagination = computed(() => ({
 }))
 
 // 渲染 a-table 表格数据
+let listRequest = 0
 const renderTableData = (pageNo, size) => {
+  const requestId = ++listRequest
+  const ownerId = props.knowledgeBase.id
   // 设置 a-table 组件加载状态为 true
   loading.value = true
 
@@ -194,9 +288,10 @@ const renderTableData = (pageNo, size) => {
   const endDateStr = endDate?.format('YYYY-MM-DD')
 
   // 请求分页接口
-  return findMarkdownFilePageList(pageNo, size, formState.fileName, startDateStr, endDateStr)
+  return findMarkdownFilePageList(pageNo, size, formState.fileName, startDateStr, endDateStr, ownerId)
     .then((res) => {
-      dataSource.value = res.data.data
+      if (requestId !== listRequest || ownerId !== props.knowledgeBase.id) return
+      dataSource.value = (res.data.data || []).filter(record => Number(record.knowledgeBaseId ?? 1) === Number(ownerId))
       current.value = res.data.current
       total.value = res.data.total
     })
@@ -205,7 +300,7 @@ const renderTableData = (pageNo, size) => {
     })
     .finally(() => {
       // 设置 a-table 组件加载状态为 false
-      loading.value = false
+      if (requestId === listRequest) loading.value = false
     })
 }
 
@@ -218,6 +313,35 @@ watch(
     }
   }
 )
+
+watch(() => props.knowledgeBase.id, () => {
+  listRequest++
+  dataSource.value = []
+  current.value = 1
+  total.value = 0
+  loading.value = false
+  formState.fileName = ''
+  formState.startEndDate = []
+  deleteMarkdownModelOpen.value = false
+  editMarkdownModelOpen.value = false
+  if (!uploading.value) uploadFileInfoModelOpen.value = false
+  if (props.open) renderTableData(1, pageSize.value)
+})
+
+const reindexing = ref(false)
+const handleReindex = async () => {
+  const ownerId = props.knowledgeBase.id
+  reindexing.value = true
+  try {
+    await reindexKnowledgeBase(ownerId)
+    message.success('索引重建任务已提交，请刷新查看同步状态')
+    if (ownerId === props.knowledgeBase.id) renderTableData(current.value, pageSize.value)
+  } catch {
+    // Axios handles API errors.
+  } finally {
+    reindexing.value = false
+  }
+}
 
 // 关闭抽屉
 const handleClose = () => {
@@ -252,59 +376,291 @@ const fileInput = ref(null)
 
 // 触发文件选择对话框
 const triggerFileUpload = () => {
-  fileInput.value?.click()
+  if (!uploading.value) fileInput.value?.click()
+}
+
+// 是否展示上传文件模态框
+const uploadFileInfoModelOpen = ref(false)
+
+// 上传的文件
+const selectedFile = ref(null)
+
+// 文件 MD5
+const fileMd5 = ref('')
+
+// 是否正在上传中
+const uploading = ref(false)
+const uploadOwnerName = ref('')
+watch(uploading, busy => emit('upload-busy', busy), { flush: 'sync' })
+
+// 上传进度
+const uploadProgress = ref(0)
+
+// 上传状态（控制进度条样式）：active / success / exception
+const uploadStatus = ref('active')
+
+// 展示状态进度信息
+const statusText = ref('')
+
+// 匹配到的已上传分片序号（断点续传用），只用于展示分片数
+const uploadedChunksCache = ref([])
+
+// 总分片数 = 已上传的 + 本轮待上传的
+const totalChunks = computed(() => {
+  if (!selectedFile.value) return 0
+  return Math.ceil(selectedFile.value.size / CHUNK_SIZE)
+})
+
+// 计算提示类型
+const alertType = computed(() => {
+  // 错误状态
+  if (uploadStatus.value === 'exception') return 'error'
+  // 成功状态（只有明确标记为 success 才显示绿色，合并中也应是蓝色）
+  if (uploadStatus.value === 'success') return 'success'
+  // 其他状态（上传中、合并中等）显示蓝色信息提示
+  return 'info'
+})
+
+// 分片读取文件计算 MD5。
+// 不一次性 readAsArrayBuffer 整个文件，否则几百 MB 的文件会把浏览器内存打满。
+let md5Calculation = 0
+const calculateMD5 = (file) => {
+  const calculation = ++md5Calculation
+  // 创建 SparkMD5.ArrayBuffer 对象，用于计算 MD5
+  const spark = new SparkMD5.ArrayBuffer()
+
+  // 创建 FileReader 对象，用于读取文件
+  const fileReader = new FileReader()
+
+  // 计算分片数
+  const chunks = Math.ceil(file.size / CHUNK_SIZE)
+
+  // 当前读取的分片，从 0 开始
+  let currentChunk = 0
+
+  // 当读取完一片数据时触发
+  fileReader.onload = (e) => {
+    if (calculation !== md5Calculation) return
+    // 将读取到的 ArrayBuffer 数据追加到 spark 对象中
+    spark.append(e.target.result)
+    currentChunk++
+
+    // 还有分片没读完，继续读下一片
+    if (currentChunk < chunks) {
+      loadNext()
+    } else {
+      // 全部分片读完，得出最终 MD5
+      fileMd5.value = spark.end()
+      statusText.value = ''
+    }
+  }
+
+  // 读取出错
+  fileReader.onerror = () => {
+    if (calculation !== md5Calculation) return
+    fileMd5.value = ''
+    message.error('MD5 计算失败，请重新选择文件')
+  }
+
+  // 读取下一分片
+  const loadNext = () => {
+    const start = currentChunk * CHUNK_SIZE
+    // 取最小值，避免最后一片超过文件大小
+    const end = Math.min(start + CHUNK_SIZE, file.size)
+    fileReader.readAsArrayBuffer(file.slice(start, end))
+  }
+
+  // 开始读第一片
+  loadNext()
 }
 
 // 处理文件选择
 const handleFileSelect = (event) => {
   const file = event.target.files[0]
-  if (!file) {
+
+  // 清空 input 的值，确保下次选择相同文件时也能触发 change 事件
+  // （不选同一个文件时路径没变，change 不会触发，用户会觉得"点了没反应"）
+  event.target.value = ''
+
+  if (!file || uploading.value) {
     return
   }
 
-  // 表单对象
-  const formData = new FormData()
-  // 添加 file 字段，并将文件传入
-  formData.append('file', file)
+  // 重置上一次上传残留的状态，否则换一个文件打开模态框，还会看到上个任务的进度条
+  uploadProgress.value = 0
+  uploadStatus.value = 'active'
+  statusText.value = ''
+  uploading.value = false
+  fileMd5.value = ''
+  uploadedChunksCache.value = []
 
-  // 显示上传按钮的 Loading 动画
-  uploadBtnLoading.value = true
+  // 保存本次要上传的文件
+  selectedFile.value = file
 
-  uploadMarkdownFile(formData)
-    .then(() => {
-      message.success('上传成功')
+  // 展示上传文件模态框
+  uploadFileInfoModelOpen.value = true
 
-      // 重新渲染列表数据
-      renderTableData(1, pageSize.value)
-    })
-    .catch(() => {})
-    .finally(() => {
-      // 隐藏上传按钮的 Loading 动画
-      uploadBtnLoading.value = false
-      // 清空 input 选中的文件，否则连续上传同一个文件不会触发 change 事件
-      event.target.value = ''
-    })
+  // 大文件算 MD5 需要一点时间，这里不阻塞 UI，算完自动填进模态框
+  calculateMD5(file)
 }
 
-// 是否展示 “删除 Markdown 文件” 确认框
+// 开始上传：秒传检查 -> 并发分批上传分片 -> 合并
+const startUpload = async () => {
+  // 前置校验
+  if (uploading.value || !selectedFile.value || !fileMd5.value) return
+
+  // Every request in this upload uses this immutable owner/file/hash snapshot.
+  const upload = captureUploadContext({ file: selectedFile.value, fileMd5: fileMd5.value, knowledgeBaseId: props.knowledgeBase.id })
+  uploadOwnerName.value = props.knowledgeBase.name
+
+  uploading.value = true
+  uploadProgress.value = 0
+  uploadStatus.value = 'active'
+
+  try {
+    // 1. 检查文件是否存在（秒传）
+    statusText.value = '检查文件是否已存在...'
+    const checkResponse = await checkFile(upload.fileMd5, upload.knowledgeBaseId)
+    const checkData = checkResponse.data.data || {}
+
+    // Existing bytes can still be processing or have failed parsing/indexing.
+    if (checkData.exists && !checkData.needUpload) {
+      uploadProgress.value = 100
+      const availability = uploadAvailability(checkData)
+      uploadStatus.value = availability.status
+      statusText.value = `文件已存在。${availability.text}`
+      if (availability.status === 'success') message.success(availability.text)
+      else if (availability.status === 'exception') message.warning(availability.text)
+      else message.info(availability.text)
+
+      // 重新渲染列表数据
+      if (upload.knowledgeBaseId === props.knowledgeBase.id) renderTableData(1, pageSize.value)
+      return
+    }
+
+    // 断点续传：拿到服务端已上传的分片序号，后面跳过它们
+    const uploadedChunks = Array.isArray(checkData.uploadedChunks) ? checkData.uploadedChunks : []
+    uploadedChunksCache.value = uploadedChunks
+
+    const chunks = Math.ceil(upload.file.size / CHUNK_SIZE)
+
+    // 2. 构建待上传分片队列
+    const uploadQueue = []
+    for (let i = 0; i < chunks; i++) {
+      // 跳过已上传的分片
+      if (uploadedChunks.includes(i)) {
+        continue
+      }
+      uploadQueue.push(i)
+    }
+
+    // 服务端已上传分片数，用于计算进度基数
+    const alreadyUploaded = uploadedChunks.length
+
+    if (uploadQueue.length === 0 && chunks !== alreadyUploaded) {
+      throw new Error('分片进度异常，请删除该文件后重新上传')
+    }
+
+    statusText.value = `开始上传分片... (已上传: ${alreadyUploaded}/${chunks})`
+
+    // 记录成功上传的分片索引。
+    // 这里刻意用数组而不是 uploadedCount++ 计数：并发场景下 ++ 是「读-改-写」三步，
+    // 多个异步任务可能同时读到同一个旧值，导致计数比实际少，进度条卡在 99%。
+    const successUploads = []
+    // 记录全部重试仍失败的分片索引
+    const failedUploads = []
+
+    // 上传单个分片，失败按指数退避重试
+    const uploadChunkWithRetry = async (chunkIndex, retryCount = 0) => {
+      try {
+        const start = chunkIndex * CHUNK_SIZE
+        const end = Math.min(start + CHUNK_SIZE, upload.file.size)
+        const chunk = upload.file.slice(start, end)
+
+        const formData = new FormData()
+        formData.append('chunk', chunk)
+        formData.append('fileMd5', upload.fileMd5)
+        formData.append('fileName', upload.file.name)
+        formData.append('fileSize', upload.file.size)
+        formData.append('knowledgeBaseId', upload.knowledgeBaseId)
+        formData.append('chunkNumber', chunkIndex)
+        formData.append('totalChunks', chunks)
+
+        await uploadFileChunk(formData)
+
+        // 记录成功后立刻更新进度。先 push 再算 count，
+        // 保证进度值一定是「已落库的分片数」，不会出现进度超前于真实进度
+        successUploads.push(chunkIndex)
+        const uploadedCount = alreadyUploaded + successUploads.length
+        uploadProgress.value = Math.floor((uploadedCount / chunks) * 100)
+        statusText.value = `上传中... ${uploadedCount}/${chunks} 分片`
+      } catch (error) {
+        // 未达最大重试次数，等一会儿再来
+        if (retryCount < MAX_RETRY) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 5000) // 最多等 5 秒
+          statusText.value = `分片 ${chunkIndex} 上传失败，重试中 (${retryCount + 1}/${MAX_RETRY})...`
+          await new Promise((resolve) => setTimeout(resolve, delay))
+          return uploadChunkWithRetry(chunkIndex, retryCount + 1)
+        }
+
+        // 重试用尽
+        failedUploads.push(chunkIndex)
+        console.error(`分片 ${chunkIndex} 上传失败，已达最大重试次数`, error)
+      }
+    }
+
+    // 3. 并发分批上传：每批最多 MAX_CONCURRENT 个，一批全部结束后再进下一批
+    for (let i = 0; i < uploadQueue.length; i += MAX_CONCURRENT) {
+      const batch = uploadQueue.slice(i, i + MAX_CONCURRENT)
+      await Promise.all(batch.map((chunkIndex) => uploadChunkWithRetry(chunkIndex)))
+    }
+
+    // 有分片最终失败，不能合并（合并出来会是一份残缺文件）
+    if (failedUploads.length > 0) {
+      throw new Error(`有 ${failedUploads.length} 个分片上传失败: ${failedUploads.join(', ')}`)
+    }
+
+    // 4. 合并分片。合并要顺序拼接所有分片，大文件耗时较久，超时给到 2 分钟
+    statusText.value = '正在合并文件...'
+    await mergeFileChunk(upload.fileMd5, 120000, upload.knowledgeBaseId)
+
+    uploadProgress.value = 100
+    uploadStatus.value = 'active'
+    statusText.value = '文件上传完成，后台正在解析并同步索引，请在列表查看处理结果。'
+    message.info('文件已接收，等待后台处理')
+
+    // 重新渲染列表数据
+    if (upload.knowledgeBaseId === props.knowledgeBase.id) renderTableData(1, pageSize.value)
+  } catch (error) {
+    console.error('上传失败:', error)
+    uploadStatus.value = 'exception'
+    statusText.value = '上传失败: ' + (error.response?.data?.message || error.message)
+  } finally {
+    uploading.value = false
+  }
+}
+
+// 是否展示 “删除问答文件” 确认框
 const deleteMarkdownModelOpen = ref(false)
 
 // 被删除的文件记录 ID
 const deleteMarkdownId = ref(null)
+const deleteKnowledgeBaseId = ref(1)
 
-// 展示 “删除 Markdown 文件” 确认框
+// 展示 “删除问答文件” 确认框
 const showDeleteMarkdownModel = (id) => {
   // 展示确认框
   deleteMarkdownModelOpen.value = true
   // 保存被删除的文件记录 ID
   deleteMarkdownId.value = id
+  deleteKnowledgeBaseId.value = props.knowledgeBase.id
 }
 
 // 执行删除。force 为 true 表示强制删除（跳过「处理中不允许删除」的限制）
-const doDelete = (id, force) => {
+const doDelete = (id, force, ownerId) => {
   deleteBtnLoading.value = true
 
-  return deleteMarkdownFile(id, force, { silent: true })
+  return deleteMarkdownFile(id, force, { silent: true }, ownerId)
     .then(() => {
       message.success('删除成功')
 
@@ -312,18 +668,18 @@ const doDelete = (id, force) => {
       deleteMarkdownModelOpen.value = false
 
       // 重新渲染列表数据
-      renderTableData(1, pageSize.value)
+      if (ownerId === props.knowledgeBase.id) renderTableData(1, pageSize.value)
     })
     .catch((err) => {
       // 20005：文件正在处理中。多半是卡在向量化流程里的僵死记录，问一下要不要强制删除
-      if (err?.errorCode === '20005' && !force) {
+      if (String(err?.errorCode) === '20005' && !force && ownerId === props.knowledgeBase.id) {
         Modal.confirm({
           title: '该文件仍在处理中',
           content: '它可能卡在了向量化流程里（例如服务中途重启过）。强制删除会同时清除已生成的向量数据，确定继续吗？',
           okText: '强制删除',
           okType: 'danger',
           cancelText: '取消',
-          onOk: () => doDelete(id, true),
+          onOk: () => doDelete(id, true, ownerId),
         })
         return
       }
@@ -335,38 +691,41 @@ const doDelete = (id, force) => {
     })
 }
 
-// “删除 Markdown 文件” 确认框确认按钮点击事件
+// “删除问答文件” 确认框确认按钮点击事件
 const handleDeleteMarkdownModelOk = () => {
-  doDelete(deleteMarkdownId.value, false)
+  doDelete(deleteMarkdownId.value, false, deleteKnowledgeBaseId.value)
 }
 
-// 是否展示 “编辑 Markdown 文件” 模态框
+// 是否展示 “编辑问答文件” 模态框
 const editMarkdownModelOpen = ref(false)
 
 // 被编辑的文件记录
 const editMarkdownRecord = reactive({
   id: null,
-  originalFileName: '',
+  fileName: '',
   fileSize: '',
   status: null,
+  indexStatus: 'NOT_READY',
+  knowledgeBaseId: 1,
   createTime: '',
   updateTime: '',
   remark: '',
 })
 
-// 展示 “编辑 Markdown 文件” 模态框
+// 展示 “编辑问答文件” 模态框
 const showEditMarkdownModel = (record) => {
   // 展示模态框
   editMarkdownModelOpen.value = true
   // 保存被编辑的文件记录（record 里正好是表单需要的这 7 个字段）
-  Object.assign(editMarkdownRecord, record)
+  Object.assign(editMarkdownRecord, record, { knowledgeBaseId: record.knowledgeBaseId ?? props.knowledgeBase.id })
 }
 
 // 编辑模态框 “提交” 按钮事件
 const handleEditMarkdownModelOk = () => {
+  const ownerId = editMarkdownRecord.knowledgeBaseId ?? props.knowledgeBase.id
   editBtnLoading.value = true
 
-  updateMarkdownFile(editMarkdownRecord)
+  updateMarkdownFile({ ...editMarkdownRecord }, ownerId)
     .then(() => {
       message.success('更新成功')
 
@@ -374,7 +733,7 @@ const handleEditMarkdownModelOk = () => {
       editMarkdownModelOpen.value = false
 
       // 重新渲染列表数据
-      renderTableData(current.value, pageSize.value)
+      if (ownerId === props.knowledgeBase.id) renderTableData(current.value, pageSize.value)
     })
     .catch(() => {})
     .finally(() => {

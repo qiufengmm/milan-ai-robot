@@ -2,9 +2,9 @@ package com.milanai.robot.event.listener;
 
 import com.google.common.collect.Lists;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.milanai.robot.domain.dos.AiCustomerServiceMdStorageDO;
-import com.milanai.robot.domain.mapper.AiCustomerServiceMdStorageMapper;
-import com.milanai.robot.enums.AiCustomerServiceMdStatusEnum;
+import com.milanai.robot.domain.dos.AiCustomerServiceFileStorageDO;
+import com.milanai.robot.domain.mapper.AiCustomerServiceFileStorageMapper;
+import com.milanai.robot.enums.AiCustomerServiceFileStatusEnum;
 import com.milanai.robot.enums.ResponseCodeEnum;
 import com.milanai.robot.event.AiCustomerServiceMdUploadedEvent;
 import com.milanai.robot.exception.BizException;
@@ -12,6 +12,7 @@ import com.milanai.robot.reader.MarkdownReader;
 import com.milanai.robot.reader.PdfReader;
 import com.milanai.robot.reader.TxtReader;
 import com.milanai.robot.reader.WordReader;
+import com.milanai.robot.service.RagIndexService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -29,6 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 /**
  * @Description: Markdown 文件上传事件监听
@@ -48,9 +50,11 @@ public class AiCustomerServiceMdUploadedListener {
     @Resource
     private VectorStore vectorStore;
     @Resource
-    private AiCustomerServiceMdStorageMapper aiCustomerServiceMdStorageMapper;
+    private AiCustomerServiceFileStorageMapper aiCustomerServiceFileStorageMapper;
     @Resource
     private TransactionTemplate transactionTemplate;
+    @Resource
+    private RagIndexService ragIndexService;
 
     /**
      * Markdown 文件向量化
@@ -71,9 +75,9 @@ public class AiCustomerServiceMdUploadedListener {
         boolean isSuccess = false;
         try {
             // 文件可能在异步任务开始前已被强制删除。
-            int updated = aiCustomerServiceMdStorageMapper.updateById(AiCustomerServiceMdStorageDO.builder()
+            int updated = aiCustomerServiceFileStorageMapper.updateById(AiCustomerServiceFileStorageDO.builder()
                     .id(id)
-                    .status(AiCustomerServiceMdStatusEnum.VECTORIZING.getCode())
+                    .status(AiCustomerServiceFileStatusEnum.VECTORIZING.getCode())
                     .updateTime(LocalDateTime.now())
                     .build());
             if (updated == 0) {
@@ -83,21 +87,26 @@ public class AiCustomerServiceMdUploadedListener {
             // 在整个向量事务内锁住归属文件。删除接口的 deleteById 会等待事务结束，
             // 已删除的文件则直接跳过，避免后台任务留下没有归属的向量。
             isSuccess = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
-                AiCustomerServiceMdStorageDO owner = aiCustomerServiceMdStorageMapper.selectOne(
-                        Wrappers.<AiCustomerServiceMdStorageDO>lambdaQuery()
-                                .eq(AiCustomerServiceMdStorageDO::getId, id)
+                AiCustomerServiceFileStorageDO owner = aiCustomerServiceFileStorageMapper.selectOne(
+                        Wrappers.<AiCustomerServiceFileStorageDO>lambdaQuery()
+                                .eq(AiCustomerServiceFileStorageDO::getId, id)
                                 .last("FOR UPDATE"));
                 if (owner == null) {
                     return true;
                 }
 
+                // Ownership comes from the locked record, never from event/document text.
+                Map<String,Object> ownedMetadata = new HashMap<>(metadatas);
+                ownedMetadata.put("mdStorageId", id);
+                ownedMetadata.put("knowledge_base_id", owner.getKnowledgeBaseId().toString());
+                if (owner.getFileName() != null) ownedMetadata.put("originalFileName", owner.getFileName());
                 // 读取文件
                 org.springframework.core.io.Resource resource = new FileSystemResource(filePath);
 
                 // 解析为 Document 集合
                 // 根据文件扩展名，使用对应格式的读取器（Markdown / PDF / Word / TXT）
-                String originalFileName = String.valueOf(metadatas.get("originalFileName"));
-                List<Document> documents = readDocuments(originalFileName, resource, metadatas);
+                String originalFileName = String.valueOf(ownedMetadata.get("originalFileName"));
+                List<Document> documents = readDocuments(originalFileName, resource, ownedMetadata);
 
                 // 各格式的初始读取粒度不一样：Markdown 已按水平线切成问答块，
                 // PDF 是按页、Word / TXT 是整篇，后两者可能是一个很大的文档块，
@@ -137,14 +146,16 @@ public class AiCustomerServiceMdUploadedListener {
                 }
 
                 // 更新存储文件的处理状态为 “已完成”
-                int completed = aiCustomerServiceMdStorageMapper.updateById(AiCustomerServiceMdStorageDO.builder()
+                int completed = aiCustomerServiceFileStorageMapper.updateById(AiCustomerServiceFileStorageDO.builder()
                         .id(id)
-                        .status(AiCustomerServiceMdStatusEnum.COMPLETED.getCode())
+                        .status(AiCustomerServiceFileStatusEnum.COMPLETED.getCode())
                         .updateTime(LocalDateTime.now())
                         .build());
                 if (completed != 1) {
                     throw new IllegalStateException("文件记录已不存在，回滚本次向量写入");
                 }
+                // The durable task commits atomically with the PostgreSQL vectors.
+                ragIndexService.enqueueUpsert(id, owner.getKnowledgeBaseId());
 
                 return true;
             }));
@@ -156,9 +167,9 @@ public class AiCustomerServiceMdUploadedListener {
         // 若事务执行失败，更新存储文件的处理状态为 “失败”
         if (!isSuccess) {
             try {
-                aiCustomerServiceMdStorageMapper.updateById(AiCustomerServiceMdStorageDO.builder()
+                aiCustomerServiceFileStorageMapper.updateById(AiCustomerServiceFileStorageDO.builder()
                         .id(id)
-                        .status(AiCustomerServiceMdStatusEnum.FAILED.getCode())
+                        .status(AiCustomerServiceFileStatusEnum.FAILED.getCode())
                         .updateTime(LocalDateTime.now())
                         .build());
             } catch (Exception ex) {

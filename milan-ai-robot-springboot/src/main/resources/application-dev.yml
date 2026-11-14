@@ -44,7 +44,7 @@ searxng: # SearXNG 搜索引擎配置
   url: http://localhost:8888/search # SearXNG 服务的 API 端点地址
   count: 10 # 每次从搜索结果中，提取的最大数量
 customer-service:
-  # md-storage-path 的默认值在 application.yml 中（./data/md-storage）。
+  # file-storage-path / chunk-path 的默认值在 application.yml 中（./data/file-storage、./data/chunk）。
   # 想在本机固定到其他目录，请在 application-secret.yml 中覆盖（本文件优先级更高，写在这里会让覆盖失效）。
-  model: deepseek-v4-flash-0731 # 模型名称
+  model: qwen3.8-flash # 客服回答模型
   temperature: 0.0 # 温度值

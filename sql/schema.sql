@@ -15,30 +15,83 @@ CREATE EXTENSION IF NOT EXISTS hstore;        -- Spring AI pgvector 元数据过
 
 
 -- ---------------------------------------------------------------------------
--- 1. 智能客服 · Markdown 知识库文件表
+-- 1. 智能客服 · 知识库
+CREATE TABLE IF NOT EXISTS t_knowledge_base (
+    id BIGSERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, description VARCHAR(500),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO t_knowledge_base(id,name,description) VALUES
+    (1,'米兰数码商城','虚构电商演示知识库') ON CONFLICT(id) DO NOTHING;
+SELECT setval(pg_get_serial_sequence('t_knowledge_base','id'),
+    greatest((SELECT coalesce(max(id),1) FROM t_knowledge_base),
+        (SELECT last_value FROM t_knowledge_base_id_seq)), true);
+
+-- 1.1 智能客服 · 知识库文件表
+--    支持大文件分片上传 / 断点续传 / 秒传：
+--      file_md5        文件身份标识，唯一索引，秒传去重靠它
+--      total_chunks    总分片数
+--      uploaded_chunks 已上传分片数
+--      status          0-上传中 1-待处理 2-向量化中 3-已完成 4-失败
+--    remark 保持 VARCHAR(500)：与后端 @Size(max = 500)、前端 :maxlength="500" 三处对齐
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS t_ai_customer_service_md_storage
+CREATE TABLE IF NOT EXISTS t_ai_customer_service_file_storage
 (
-    id                 BIGSERIAL     NOT NULL,
-    original_file_name VARCHAR(160)  NOT NULL,               -- 上传时的原始文件名
-    new_file_name      VARCHAR(160)  NOT NULL,               -- 落盘用的新文件名（UUID，防重名/防路径穿越）
-    file_path          VARCHAR(500)  NOT NULL,               -- 本地绝对存储路径
-    file_size          BIGINT        NOT NULL,               -- 文件字节数
-    status             SMALLINT      DEFAULT 0,              -- 0=待处理 1=向量化中 2=已完成 3=失败
-    remark             VARCHAR(500),                         -- 备注
-    create_time        TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-    update_time        TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT t_ai_customer_service_md_storage_pkey PRIMARY KEY (id)
+    id              BIGSERIAL     NOT NULL,
+    knowledge_base_id BIGINT      NOT NULL DEFAULT 1,
+    file_name       VARCHAR(160)  NOT NULL,               -- 上传时的原始文件名
+    file_md5        VARCHAR(32)   NOT NULL,               -- 文件 MD5，用于秒传和去重
+    file_path       VARCHAR(500)  NOT NULL,               -- 合并后的本地绝对存储路径（上传中为空串）
+    file_size       BIGINT        NOT NULL,               -- 原始文件字节数
+    total_chunks    INTEGER       NOT NULL,               -- 总分片数
+    uploaded_chunks INTEGER       NOT NULL DEFAULT 0,     -- 已上传分片数
+    status          SMALLINT      DEFAULT 0,              -- 0=上传中 1=待处理 2=向量化中 3=已完成 4=失败
+    remark          VARCHAR(500),                         -- 备注
+    create_time     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    update_time     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT t_ai_customer_service_file_storage_pkey PRIMARY KEY (id)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS t_ai_customer_service_md_storage_pkey
-    ON t_ai_customer_service_md_storage (id);
-CREATE INDEX IF NOT EXISTS idx_t_ai_customer_service_md_storage_original_file_name
-    ON t_ai_customer_service_md_storage (original_file_name);
-CREATE INDEX IF NOT EXISTS idx_t_ai_customer_service_md_storage_status
-    ON t_ai_customer_service_md_storage (status);
-CREATE INDEX IF NOT EXISTS idx_t_ai_customer_service_md_storage_created_time
-    ON t_ai_customer_service_md_storage (create_time);
+CREATE UNIQUE INDEX IF NOT EXISTS t_ai_customer_service_file_storage_pkey
+    ON t_ai_customer_service_file_storage (id);
+-- 知识库内文件 MD5 唯一索引：秒传去重的依据，同时也是「同一文件不重复入库」的保障
+CREATE UNIQUE INDEX IF NOT EXISTS uk_file_kb_md5
+    ON t_ai_customer_service_file_storage (knowledge_base_id, file_md5);
+CREATE INDEX IF NOT EXISTS idx_file_storage_file_name
+    ON t_ai_customer_service_file_storage (file_name);
+CREATE INDEX IF NOT EXISTS idx_file_storage_status
+    ON t_ai_customer_service_file_storage (status);
+CREATE INDEX IF NOT EXISTS idx_file_storage_create_time
+    ON t_ai_customer_service_file_storage (create_time);
+
+
+-- ---------------------------------------------------------------------------
+-- 1.1 智能客服 · 文件分片表
+--     记录哪些分片已经上传成功，断点续传时把这些序号返回给前端跳过，
+--     合并完成后连同磁盘上的分片目录一起清理掉。
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS t_file_chunk_info
+(
+    id           BIGSERIAL     NOT NULL,
+    knowledge_base_id BIGINT       NOT NULL DEFAULT 1,
+    file_md5     VARCHAR(32)   NOT NULL,                  -- 所属原始文件的 MD5
+    chunk_number INTEGER       NOT NULL,                  -- 分片序号，从 0 开始
+    chunk_path   VARCHAR(500)  NOT NULL,                  -- 分片文件落盘路径
+    chunk_size   BIGINT        NOT NULL,                  -- 分片字节数
+    create_time  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT t_file_chunk_info_pkey PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS t_file_chunk_info_pkey ON t_file_chunk_info (id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_chunk_kb_md5_number ON t_file_chunk_info (knowledge_base_id, file_md5, chunk_number);
+
+CREATE TABLE IF NOT EXISTS t_rag_index_task (
+    file_id BIGINT PRIMARY KEY, knowledge_base_id BIGINT NOT NULL,
+    operation VARCHAR(8) NOT NULL CHECK(operation IN ('UPSERT','DELETE')),
+    attempts INTEGER NOT NULL DEFAULT 0, last_error VARCHAR(300),
+    next_attempt_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_rag_index_task_due ON t_rag_index_task(next_attempt_time);
 
 
 -- ---------------------------------------------------------------------------

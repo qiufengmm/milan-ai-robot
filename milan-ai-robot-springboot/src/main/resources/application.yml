@@ -19,11 +19,44 @@ spring:
       # OpenAI 兼容接口地址，默认使用阿里云百炼公共网关。
       # 若使用专属部署，请在 application-secret.yml 中覆盖本项。
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  servlet:
+    multipart:
+      # 分片上传走的是表单提交，默认单个文件上限只有 1MB，会把 2MB 的分片直接拒掉（413）。
+      # 这里放到 10MB，留出余量；分片大小由前端 CHUNK_SIZE 控制（当前 2MB）。
+      max-file-size: 10MB # 单个文件大小限制
+      max-request-size: 10MB # 总请求大小限制
 
-# Markdown 知识库文件落盘目录。相对路径基于启动目录，也可填绝对路径（Windows 用双反斜杠）。
+# 知识库文件落盘目录。相对路径基于启动目录，也可填绝对路径（Windows 用双反斜杠）。
 # 想在本机固定到某个目录、又不希望写进版本库，可在 application-secret.yml 中覆盖本项。
 customer-service:
-  md-storage-path: ./data/md-storage
+  # 合并后的大文件存放目录
+  file-storage-path: ./data/file-storage
+  # 分片小文件存放目录（每个文件一个以 MD5 命名的子目录），合并成功后会被自动清理
+  chunk-path: ./data/chunk
 
 logging:
   config: classpath:log4j2.xml # 设置日志配置文件路径
+
+# 检索与索引配置。密钥和专属网关只放 application-secret.yml。
+rag:
+  elasticsearch:
+    enabled: true
+    url: http://localhost:19200
+    index-name: milan_rag_chunks_v1
+    analyzer: ik_max_word
+    search-analyzer: ik_smart
+    timeout-seconds: 10
+    sync-delay-ms: 3000
+  retrieval:
+    vector-top-k: 10
+    keyword-top-k: 10
+    fused-top-k: 10
+    rrf-k: 60
+    log-evidence: false # 仅本地评测开启，日志包含知识正文
+  rerank:
+    enabled: true
+    model: qwen3-rerank
+    top-n: 3
+    timeout-seconds: 15
+    # 默认使用现有账号 Key，从兼容网关 origin 推导原生 DashScope 路径。
+    # 独立地址/Key 可在 application-secret.yml 设置 rag.rerank.api-url/api-key。

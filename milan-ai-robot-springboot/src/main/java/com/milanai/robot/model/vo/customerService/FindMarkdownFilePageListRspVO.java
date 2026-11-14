@@ -9,13 +9,15 @@ import java.time.LocalDateTime;
 
 
 /**
- * @description: 查询 Markdown 问答文件列表
+ * @description: 查询问答文件列表
  **/
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
 public class FindMarkdownFilePageListRspVO {
+    private Long knowledgeBaseId;
+    private String indexStatus;
     /**
      * 文件 ID
      */
@@ -24,7 +26,7 @@ public class FindMarkdownFilePageListRspVO {
     /**
      * 文件原始名称
      */
-    private String originalFileName;
+    private String fileName;
 
     /**
      * 文件大小
@@ -32,12 +34,12 @@ public class FindMarkdownFilePageListRspVO {
     private String fileSize;
 
     /**
-     * 处理状态：0-待处理 1-向量化中 2-已完成 3-失败
+     * 处理状态：0-上传中 1-待处理 2-向量化中 3-已完成 4-失败
      */
     private Integer status;
 
     /**
-     * 发布时间
+     * 创建时间
      */
     private LocalDateTime createTime;
 

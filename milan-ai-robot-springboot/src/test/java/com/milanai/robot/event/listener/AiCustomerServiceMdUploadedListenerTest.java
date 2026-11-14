@@ -1,10 +1,12 @@
 package com.milanai.robot.event.listener;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
-import com.milanai.robot.domain.dos.AiCustomerServiceMdStorageDO;
-import com.milanai.robot.domain.mapper.AiCustomerServiceMdStorageMapper;
+import com.milanai.robot.domain.dos.AiCustomerServiceFileStorageDO;
+import com.milanai.robot.domain.mapper.AiCustomerServiceFileStorageMapper;
+import com.milanai.robot.enums.AiCustomerServiceFileStatusEnum;
 import com.milanai.robot.event.AiCustomerServiceMdUploadedEvent;
 import com.milanai.robot.reader.TxtReader;
+import com.milanai.robot.service.RagIndexService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -30,16 +32,18 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 class AiCustomerServiceMdUploadedListenerTest {
 
     @TempDir
     Path directory;
 
-    private final AiCustomerServiceMdStorageMapper mapper = mock(AiCustomerServiceMdStorageMapper.class);
+    private final AiCustomerServiceFileStorageMapper mapper = mock(AiCustomerServiceFileStorageMapper.class);
     private final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
     private final Map<String, Document> vectors = new HashMap<>();
     private final List<Integer> statuses = new ArrayList<>();
+    private final RagIndexService indexService = mock(RagIndexService.class);
     private AiCustomerServiceMdUploadedListener listener;
 
     @BeforeEach
@@ -52,19 +56,37 @@ class AiCustomerServiceMdUploadedListenerTest {
             return null;
         }).when(vectorStore).add(any());
         doAnswer(invocation -> {
-            AiCustomerServiceMdStorageDO file = invocation.getArgument(0);
+            AiCustomerServiceFileStorageDO file = invocation.getArgument(0);
             statuses.add(file.getStatus());
             return 1;
-        }).when(mapper).updateById(any(AiCustomerServiceMdStorageDO.class));
+        }).when(mapper).updateById(any(AiCustomerServiceFileStorageDO.class));
         when(mapper.selectOne(any(Wrapper.class)))
-                .thenReturn(AiCustomerServiceMdStorageDO.builder().id(1L).build());
+                .thenAnswer(invocation -> AiCustomerServiceFileStorageDO.builder().knowledgeBaseId(1L).build());
         when(transactionManager.getTransaction(any())).thenAnswer(invocation -> new SimpleTransactionStatus());
 
         listener = new AiCustomerServiceMdUploadedListener();
         ReflectionTestUtils.setField(listener, "txtReader", new TxtReader());
         ReflectionTestUtils.setField(listener, "vectorStore", vectorStore);
-        ReflectionTestUtils.setField(listener, "aiCustomerServiceMdStorageMapper", mapper);
+        ReflectionTestUtils.setField(listener, "aiCustomerServiceFileStorageMapper", mapper);
         ReflectionTestUtils.setField(listener, "transactionTemplate", new TransactionTemplate(transactionManager));
+        ReflectionTestUtils.setField(listener, "ragIndexService", indexService);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void authoritativeOwnerOverridesUntrustedEventMetadataAndQueuesIndex() throws Exception {
+        when(mapper.selectOne(any(Wrapper.class)))
+                .thenReturn(AiCustomerServiceFileStorageDO.builder().id(1L).knowledgeBaseId(7L).fileName("owned.txt").build());
+        var event = upload(1L, "owned.txt", "Independent library information.");
+        event.setMetadatas(Map.of("mdStorageId", 999L, "knowledge_base_id", "999", "originalFileName", "owned.txt"));
+
+        listener.vectorizing(event);
+
+        assertThat(vectors.values()).singleElement().satisfies(doc -> {
+            assertThat(doc.getMetadata().get("knowledge_base_id")).isEqualTo("7");
+            assertThat(doc.getMetadata().get("mdStorageId")).isEqualTo(1L);
+        });
+        verify(indexService).enqueueUpsert(1L, 7L);
     }
 
     @Test
@@ -89,7 +111,9 @@ class AiCustomerServiceMdUploadedListenerTest {
         listener.vectorizing(upload(1L, "blank.txt", "  \n\t \n"));
 
         assertThat(vectors).isEmpty();
-        assertThat(statuses).containsExactly(1, 3);
+        assertThat(statuses).containsExactly(
+                AiCustomerServiceFileStatusEnum.VECTORIZING.getCode(),
+                AiCustomerServiceFileStatusEnum.FAILED.getCode());
     }
 
     @Test
@@ -98,7 +122,7 @@ class AiCustomerServiceMdUploadedListenerTest {
 
         assertThat(vectors.values()).singleElement()
                 .extracting(Document::getText).isEqualTo("保修一年");
-        assertThat(statuses.getLast()).isEqualTo(2);
+        assertThat(statuses.getLast()).isEqualTo(AiCustomerServiceFileStatusEnum.COMPLETED.getCode());
     }
 
     @Test
@@ -109,7 +133,7 @@ class AiCustomerServiceMdUploadedListenerTest {
         listener.vectorizing(upload(1L, "deleted.txt", "A deleted file must never leave searchable knowledge chunks behind."));
 
         assertThat(vectors).isEmpty();
-        assertThat(statuses).doesNotContain(2);
+        assertThat(statuses).doesNotContain(AiCustomerServiceFileStatusEnum.COMPLETED.getCode());
     }
 
     @Test
@@ -120,7 +144,7 @@ class AiCustomerServiceMdUploadedListenerTest {
 
         assertDoesNotThrow(() -> listener.vectorizing(event));
 
-        assertThat(statuses.getLast()).isEqualTo(3);
+        assertThat(statuses.getLast()).isEqualTo(AiCustomerServiceFileStatusEnum.FAILED.getCode());
     }
 
     private AiCustomerServiceMdUploadedEvent upload(long id, String filename, String text) throws Exception {

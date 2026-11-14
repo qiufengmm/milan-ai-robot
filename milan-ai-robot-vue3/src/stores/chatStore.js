@@ -1,34 +1,25 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { restoreChatSelection } from './persistedChatSelection.js'
 
 // 创建store
 export const useChatStore = defineStore('chat', () => {
 
   // 定义模型列表
-  const models = ref([
-    { id: 1, name: 'deepseek-v4.1-flash', icon: 'deepseek-logo', description: '极速响应', selected: true },
-    { id: 2, name: 'qwen3.8-27b', icon: 'qwen-logo', description: '均衡全能', selected: false },
-    { id: 3, name: 'kimi-k3', icon: 'kimi-logo', description: '超长上下文', selected: false },
-  ])
+  const initialSelection = restoreChatSelection()
+  const models = ref(initialSelection.models)
 
   // 选中的模型，默认为第一个
-  const selectedModel = ref(models.value[0])
+  const selectedModel = ref(initialSelection.selectedModel)
 
   // 联网搜索状态，默认为false
   const isNetworkSearchSelected = ref(false)
 
   // 更新选中的模型
   function updateSelectedModel(model) {
-    // 将所有模型的 selected 置为 false
-    models.value.forEach(m => {
-      m.selected = false;
-    });
-    
-    // 将选中模型的 selected 置为 true
-    model.selected = true;
-    
-    // 更新当前选中的模型
-    selectedModel.value = model;
+    const selection = restoreChatSelection({ selectedModel: model })
+    models.value = selection.models
+    selectedModel.value = selection.selectedModel
   }
 
   // 更新联网搜索状态
@@ -41,5 +32,18 @@ export const useChatStore = defineStore('chat', () => {
 },
 {
   // 开启持久化
-  persist: true,
+  persist: {
+    pick: ['selectedModel', 'isNetworkSearchSelected'],
+    afterHydrate({ store }) {
+      store.updateSelectedModel(store.selectedModel)
+      store.$persist()
+    },
+    serializer: {
+      serialize: JSON.stringify,
+      deserialize(value) {
+        const persisted = JSON.parse(value)
+        return { ...persisted, ...restoreChatSelection(persisted) }
+      },
+    },
+  },
 })

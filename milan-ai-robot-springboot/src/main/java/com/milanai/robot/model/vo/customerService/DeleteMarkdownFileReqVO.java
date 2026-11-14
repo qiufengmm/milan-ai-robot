@@ -17,6 +17,9 @@ import lombok.NoArgsConstructor;
 @Builder
 public class DeleteMarkdownFileReqVO {
 
+    @Builder.Default
+    private Long knowledgeBaseId = 1L;
+
     @NotNull(message = "问答文件 ID 不能为空")
     private Long id;
 

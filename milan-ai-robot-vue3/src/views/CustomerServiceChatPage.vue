@@ -31,7 +31,11 @@
         </div>
 
         <!-- 聊天记录区域 -->
-        <div class="flex-1 max-w-3xl mx-auto pb-24 pt-4 px-4 w-full">
+        <div class="flex-1 max-w-3xl mx-auto pb-24 pt-16 px-4 w-full">
+          <div class="mb-6 rounded-xl border border-gray-200 bg-white p-4">
+            <KnowledgeBaseSelector v-model="selectedKnowledgeBase" :disabled="uploadBusy" />
+            <p class="text-xs text-gray-400 mt-2 mb-0">聊天和文件管理均使用当前知识库；切换后开始新的对话。</p>
+          </div>
           <!-- 遍历聊天记录 -->
           <template v-for="(chat, index) in chatList" :key="index">
             <!-- 用户提问消息（靠右） -->
@@ -52,28 +56,32 @@
               <!-- 回复的内容 -->
               <div class="p-1 mb-2 max-w-[90%]">
                 <LoadingDots v-if="chat.loading" />
-                <StreamMarkdownRender :content="chat.content" />
+                <StreamMarkdownRender :content="chat.welcome ? welcomeMessage : chat.content" />
               </div>
             </div>
           </template>
+          <a-button v-if="isReplying" size="small" @click="stopReply">停止回答</a-button>
         </div>
 
         <!-- 提问输入框 -->
         <ChatInputBox v-model="chatMessage" containerClass="sticky max-w-3xl mx-auto bg-white bottom-8 left-0 w-full"
-          @sendMessage="sendMessage" placeholder="咨询商品、配送、退换货或保修问题……" :showModelDropdown="false" :showNetworkSearch="false"/>
+          @sendMessage="sendMessage" :placeholder="`向${selectedKnowledgeBase.name}提问……`" :showModelDropdown="false" :showNetworkSearch="false"/>
 
         <!-- 抽屉：客服问答文件管理（搜索、上传、表格、编辑/删除模态框都在组件内部） -->
-        <MarkdownFileDrawer v-model:open="settingsDrawerOpen" />
+        <MarkdownFileDrawer v-model:open="settingsDrawerOpen" :knowledge-base="selectedKnowledgeBase" @upload-busy="uploadBusy = $event" />
       </div>
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { computed, ref, nextTick, watch, onBeforeUnmount } from 'vue'
+import { message } from 'ant-design-vue'
 import SvgIcon from '@/components/SvgIcon.vue'
 import StreamMarkdownRender from '@/components/StreamMarkdownRender.vue'
 import LoadingDots from '@/components/LoadingDots.vue'
 import ChatInputBox from '@/components/ChatInputBox.vue'
 import MarkdownFileDrawer from '@/components/customer-service/MarkdownFileDrawer.vue'
+import KnowledgeBaseSelector from '@/components/customer-service/KnowledgeBaseSelector.vue'
+import { createReplyScope, streamScopedReply } from '@/components/customer-service/knowledgeScope.js'
 import { useRouter } from 'vue-router'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 
@@ -98,18 +106,43 @@ const chatMessage = ref(history.state?.firstMessage || '')
 // 聊天容器引用
 const chatContainer = ref(null)
 
-// 聊天记录，默认给一个欢迎语
-const chatList = ref([{ role: 'assistant', content: '你好，我是米兰数码商城智能客服，可以帮你了解商品参数、配送规则、退换货和保修政策。请告诉我商品名称和想咨询的问题。', loading: false }])
-
-
-// 对话 ID
+const selectedKnowledgeBase = ref({ id: 1, name: '米兰数码商城', description: '' })
+const uploadBusy = ref(false)
+const isReplying = ref(false)
+const replyScope = createReplyScope()
+const welcomeMessage = computed(() => selectedKnowledgeBase.value.id === 1
+  ? `你好，我是${selectedKnowledgeBase.value.name}智能客服，可以帮你了解商品参数、配送规则、退换货和保修政策。请告诉我商品名称和想咨询的问题。`
+  : `你好，我是${selectedKnowledgeBase.value.name}智能助手。请告诉我你的问题，我会根据当前知识库的资料为你解答。`)
+const newConversation = () => [{ role: 'assistant', content: '', welcome: true, loading: false }]
+const chatList = ref(newConversation())
 const chatId = ref(null)
 
+watch(() => selectedKnowledgeBase.value.id, () => {
+  replyScope.cancel()
+  isReplying.value = false
+  chatList.value = newConversation()
+  chatId.value = null
+  chatMessage.value = ''
+}, { flush: 'sync' })
+
+const stopReply = () => {
+  replyScope.cancel()
+  isReplying.value = false
+  const reply = chatList.value[chatList.value.length - 1]
+  if (reply?.loading) reply.loading = false
+  if (reply?.role === 'assistant' && !reply.welcome && !reply.content) reply.content = '回答已停止。'
+}
+
+onBeforeUnmount(() => replyScope.cancel())
 
 // 发送消息
 const sendMessage = async () => {
   // 校验发送的消息不能为空
   if (!chatMessage.value.trim()) return
+  if (isReplying.value) {
+    message.info('请等待当前回答完成，或先停止回答')
+    return
+  }
 
   // 将用户发送的消息添加到 chatList 聊天列表中
   const userMessage = chatMessage.value.trim()
@@ -119,79 +152,38 @@ const sendMessage = async () => {
   chatMessage.value = ''
 
   // 添加一个占位的回复消息
-  chatList.value.push({ role: 'assistant', content: '', loading: true})
+  const reply = { role: 'assistant', content: '', loading: true }
+  chatList.value.push(reply)
+  // Use the reactive object actually stored by Vue, rather than the raw object.
+  const targetReply = chatList.value[chatList.value.length - 1]
+  const token = replyScope.begin(selectedKnowledgeBase.value.id)
+  isReplying.value = true
+  scrollToBottom()
 
   try {
-    // 构建请求体
-    const requestBody = {
+    await streamScopedReply({
+      fetchEventSource,
+      token,
       message: userMessage,
       chatId: chatId.value,
-    }
-
-    // 响应的回答
-    let responseText = ''
-    // 获取最后一条消息
-    const lastMessage = chatList.value[chatList.value.length - 1]
-
-    const controller = new AbortController()
-    const signal = controller.signal
-
-    fetchEventSource('http://localhost:8080/customer-service/chat/completion', {
-      method: 'POST',
-      openWhenHidden: true, // 页面切到后台时不要中断 SSE 连接
-      signal: signal,
-      headers: {
-        'Content-Type': 'application/json',
+      onChunk(chunk) {
+        targetReply.loading = false
+        targetReply.content += chunk
+        scrollToBottom()
       },
-      body: JSON.stringify(requestBody),
-      onmessage(msg) {
-        if (msg.event === '') {
-          // 收到第一条数据后设置 loading 为 false
-          if (lastMessage.loading) {
-              lastMessage.loading = false;
-          }
-
-          // 后端 /customer-service/chat/completion 返回的是 Flux<String>，
-          // SSE 里的 data 就是纯文本分片（例如 `data:你好`），不是 JSON。
-          // 这里做成兼容写法：能解析成 JSON 就取 v 字段，否则按纯文本处理，
-          // 这样即使后续后端改成返回 JSON 结构也不用再改前端。
-          let chunk = msg.data
-          try {
-            const parsed = JSON.parse(msg.data)
-            if (parsed && typeof parsed === 'object') {
-              chunk = parsed.v ?? ''
-            }
-          } catch {
-            // 不是 JSON，说明后端返回的就是纯文本，直接用原文
-          }
-
-          // 持续追加流式回答
-          responseText += chunk
-
-          // 更新最后一条消息
-          chatList.value[chatList.value.length - 1].content = responseText
-          // 滚动到底部
-          scrollToBottom()
-        }
-        else if (msg.event === 'close') {
-          if (import.meta.env.DEV) {
-            console.log('-- sse close')
-          }
-          controller.abort();
-        }
-      },
-      onerror(err) {
-        throw err;    // 必须 throw 才能停止 
-      }
     })
   } catch (error) {
-    console.error('发送消息错误: ', error)
-    // 提示用户 “请求出错”
-    const lastMessage = chatList.value[chatList.value.length - 1]
-    lastMessage.content = '抱歉，请求出错了，请稍后重试。'
-    lastMessage.loading = false
-    // 滚动到底部
-    scrollToBottom()
+    if (token.isCurrent()) {
+      targetReply.content += `${targetReply.content ? '\n\n' : ''}抱歉，回答中断了，请稍后重试。`
+      console.error('发送消息错误: ', error)
+    }
+  } finally {
+    targetReply.loading = false
+    if (replyScope.finish(token)) {
+      isReplying.value = false
+      if (!targetReply.content) targetReply.content = '暂未收到回答，请稍后重试。'
+      scrollToBottom()
+    }
   }
 }
 

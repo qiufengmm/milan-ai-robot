@@ -15,6 +15,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class AiCustomerServiceChatReqVO {
+    @Builder.Default
+    private Long knowledgeBaseId = 1L;
 
     @NotBlank(message = "用户消息不能为空")
     private String message;

@@ -5,6 +5,11 @@ import com.milanai.robot.advisor.CustomerServiceAdvisor;
 import com.milanai.robot.aspect.ApiOperationLog;
 import com.milanai.robot.model.vo.customerService.*;
 import com.milanai.robot.service.CustomerService;
+import com.milanai.robot.service.HybridRetrievalService;
+import com.milanai.robot.service.RerankService;
+import com.milanai.robot.service.KnowledgeBaseService;
+import com.milanai.robot.config.RagProperties;
+import tools.jackson.databind.ObjectMapper;
 import com.milanai.robot.utils.PageResponse;
 import com.milanai.robot.utils.Response;
 import jakarta.annotation.Resource;
@@ -14,12 +19,11 @@ import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.vectorstore.VectorStore;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -36,7 +40,15 @@ public class AiCustomerServiceController {
     @Resource
     private CustomerService customerService;
     @Resource
-    private VectorStore vectorStore;
+    private HybridRetrievalService retrievalService;
+    @Resource
+    private RerankService rerankService;
+    @Resource
+    private KnowledgeBaseService knowledgeBaseService;
+    @Resource
+    private RagProperties ragProperties;
+    @Resource
+    private ObjectMapper objectMapper;
 
     @Value("${spring.ai.openai.base-url}")
     private String baseUrl;
@@ -48,38 +60,72 @@ public class AiCustomerServiceController {
     private Double temperature;
 
     /**
-     * 问答 MD 文件上传
-     * @param file
-     * @return
+     * 检查文件是否存在（秒传 / 断点续传）
+     *
+     * @param checkFileReqVO 入参
+     * @return 检查结果
      */
-    @PostMapping(value = "/md/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Response<?> uploadMarkdownFile(@RequestPart(value = "file", required = false) MultipartFile file) {
-        return customerService.uploadMarkdownFile(file);
+    @PostMapping("/file/check")
+    @ApiOperationLog(description = "检查文件是否存在")
+    public Response<CheckFileRspVO> checkFile(@RequestBody @Validated CheckFileReqVO checkFileReqVO) {
+        return customerService.checkFile(checkFileReqVO);
     }
-    @PostMapping("/md/delete")
-    @ApiOperationLog(description = "删除 Markdown 问答文件")
+
+    /**
+     * 文件分片上传
+     * <p>
+     * 注意：这里刻意不加 @ApiOperationLog。
+     * 该切面会把入参序列化成 JSON 打日志，而入参里含 MultipartFile，
+     * Jackson 序列化时会抛 "MultipartFile resource [chunk] cannot be resolved to absolute file path"，
+     * 整个请求直接失败。
+     *
+     * @param uploadChunkReqVO 入参（表单提交）
+     * @return 上传结果
+     */
+    @PostMapping(value = "/file/upload-chunk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Response<?> uploadChunk(@ModelAttribute UploadChunkReqVO uploadChunkReqVO) {
+        return customerService.uploadChunk(uploadChunkReqVO);
+    }
+
+    /**
+     * 文件分片合并
+     *
+     * @param mergeChunkReqVO 入参
+     * @return 合并结果
+     */
+    @PostMapping("/file/merge-chunk")
+    @ApiOperationLog(description = "文件分片合并")
+    public Response<?> mergeChunk(@RequestBody @Validated MergeChunkReqVO mergeChunkReqVO) {
+        return customerService.mergeChunk(mergeChunkReqVO);
+    }
+
+    @PostMapping("/file/delete")
+    @ApiOperationLog(description = "删除问答文件")
     public Response<?> deleteMarkdownFile(@RequestBody @Validated DeleteMarkdownFileReqVO deleteMarkdownFileReqVO) {
         return customerService.deleteMarkdownFile(deleteMarkdownFileReqVO);
     }
-    @PostMapping("/md/list")
-    @ApiOperationLog(description = "Markdown 问答文件分页查询")
+
+    @PostMapping("/file/list")
+    @ApiOperationLog(description = "问答文件分页查询")
     public PageResponse<FindMarkdownFilePageListRspVO> findMarkdownFilePageList(@RequestBody @Validated FindMarkdownFilePageListReqVO findMarkdownFilePageListReqVO) {
         return customerService.findMarkdownFilePageList(findMarkdownFilePageListReqVO);
     }
 
-    @PostMapping("/md/update")
-    @ApiOperationLog(description = "修改 Markdown 问答文件信息")
+    @PostMapping("/file/update")
+    @ApiOperationLog(description = "修改问答文件信息")
     public Response<?> updateMarkdownFile(@RequestBody @Validated UpdateMarkdownFileReqVO updateMarkdownFileReqVO) {
         return customerService.updateMarkdownFile(updateMarkdownFileReqVO);
     }
 
     /**
      * 流式对话
-     * @return
+     *
+     * @return SSE 流
      */
     @PostMapping(value = "/chat/completion", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @ApiOperationLog(description = "AI 智能客服对话")
     public Flux<String> chat(@RequestBody @Validated AiCustomerServiceChatReqVO aiChatReqVO) {
+        var library = knowledgeBaseService.require(aiChatReqVO.getKnowledgeBaseId());
         // 用户消息
         String userMessage = aiChatReqVO.getMessage();
 
@@ -101,7 +147,7 @@ public class AiCustomerServiceController {
 
         // Advisor 集合
         List<Advisor> advisors = Lists.newArrayList();
-        advisors.add(new CustomerServiceAdvisor(vectorStore)); // 检索向量库，组合增强提示词
+        advisors.add(new CustomerServiceAdvisor(retrievalService, rerankService, ragProperties, library, objectMapper)); // 当前知识库内混合检索、重排、增强提示词
 
         // 应用 Advisor 集合
         chatClientRequestSpec.advisors(advisors);
@@ -113,4 +159,3 @@ public class AiCustomerServiceController {
     }
 
 }
-
