@@ -1,0 +1,730 @@
+[
+  {
+    "id": "HR07",
+    "category": "policy",
+    "actor": "employee",
+    "kb": "员工服务",
+    "turns": [
+      "这份演示制度里的调休多久过期？"
+    ],
+    "expected": "形成之日起90个自然日；逾期顺延需HR确认",
+    "source": "02-请假与出勤申请.md",
+    "status": "DONE",
+    "chatId": "2f258d6c-e679-4369-878a-868389afaf32",
+    "turnResults": [
+      {
+        "question": "这份演示制度里的调休多久过期？",
+        "answer": "根据《02-请假与出勤申请.md》版本 1 的演示规则：调休应在形成之日起 **90 个自然日内使用**；逾期是否顺延由 **HR 确认**。\n\n适用条件：加班形成的调休需在出勤门户中可见后方可申请，预计调休当天仍需主管审批。",
+        "sources": [
+          {
+            "documentId": "2",
+            "versionNo": 1,
+            "title": "02-请假与出勤申请.md",
+            "fileName": "02-请假与出勤申请.md",
+            "fileId": "2",
+            "chunkId": "6fcf6b2e-70fd-34b2-b86a-7f0dd8f56969",
+            "excerpt": "加班形成的调休需在出勤门户中可见后方可申请；预计调休当天仍需主管审批。 演示规则为调休应在形成之日起 90 个自然日内使用，逾期是否顺延由 HR 确认。",
+            "historical": false
+          },
+          {
+            "documentId": "2",
+            "versionNo": 1,
+            "title": "02-请假与出勤申请.md",
+            "fileName": "02-请假与出勤申请.md",
+            "fileId": "2",
+            "chunkId": "56079539-6e12-3c6e-892d-5f704f11406e",
+            "excerpt": "入职满 1 年后开始享有年假；演示规则为每个完整服务年度 5 个工作日，服务满 5 年后为 10 个工作日。 年假按工作日扣减，法定节假日和周末不计入连续休假天数。 年假原则上提前 3 个工作日申请，连续 5 个工作日及以上建议提前 10 个工作日。",
+            "historical": false
+          }
+        ],
+        "events": [
+          "meta",
+          "sources",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "done"
+        ],
+        "answerId": 304,
+        "elapsedSeconds": 6.713,
+        "done": true,
+        "cancelled": false,
+        "error": null,
+        "attempts": [
+          {
+            "elapsedSeconds": 6.727,
+            "events": [
+              "meta",
+              "sources",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "done"
+            ],
+            "error": null
+          }
+        ],
+        "retrievalCorrect": null,
+        "answerCorrect": null,
+        "evidenceSupported": null
+      }
+    ],
+    "retrievalCorrect": null,
+    "answerCorrect": null,
+    "evidenceSupported": null
+  },
+  {
+    "id": "MT01",
+    "category": "multi_turn",
+    "actor": "employee",
+    "kb": "员工服务",
+    "turns": [
+      "年假提前多久申请？",
+      "如果是连续5个工作日呢？"
+    ],
+    "expected": "第一轮原则上提前3个工作日；第二轮建议提前10个工作日",
+    "source": "02-请假与出勤申请.md",
+    "status": "ERROR",
+    "chatId": "da59a621-791e-4b35-bb86-e3b54a4521a3",
+    "turnResults": [
+      {
+        "question": "年假提前多久申请？",
+        "answer": "年假原则上需提前 **3 个工作日**申请；如连续申请 **5 个工作日及以上**，建议提前 **10 个工作日**申请。",
+        "sources": [
+          {
+            "documentId": "2",
+            "versionNo": 1,
+            "title": "02-请假与出勤申请.md",
+            "fileName": "02-请假与出勤申请.md",
+            "fileId": "2",
+            "chunkId": "56079539-6e12-3c6e-892d-5f704f11406e",
+            "excerpt": "入职满 1 年后开始享有年假；演示规则为每个完整服务年度 5 个工作日，服务满 5 年后为 10 个工作日。 年假按工作日扣减，法定节假日和周末不计入连续休假天数。 年假原则上提前 3 个工作日申请，连续 5 个工作日及以上建议提前 10 个工作日。",
+            "historical": false
+          },
+          {
+            "documentId": "2",
+            "versionNo": 1,
+            "title": "02-请假与出勤申请.md",
+            "fileName": "02-请假与出勤申请.md",
+            "fileId": "2",
+            "chunkId": "d56c81b4-fd2a-308b-9f24-b865d3c21856",
+            "excerpt": "年假、病假、事假和调休均通过员工门户「出勤与休假」提交，不接受机器人、邮件或口头代提交。 申请应填写假期类型、起止日期、工作交接人和交接事项；提交后由直属主管审批。 请假获批前，员工应按原排班安排工作；机器人不能查看个人审批状态。",
+            "historical": false
+          }
+        ],
+        "events": [
+          "meta",
+          "sources",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "done"
+        ],
+        "answerId": 306,
+        "elapsedSeconds": 2.632,
+        "done": true,
+        "cancelled": false,
+        "error": null,
+        "attempts": [
+          {
+            "elapsedSeconds": 2.648,
+            "events": [
+              "meta",
+              "sources",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "done"
+            ],
+            "error": null
+          }
+        ],
+        "retrievalCorrect": null,
+        "answerCorrect": null,
+        "evidenceSupported": null
+      },
+      {
+        "question": "如果是连续5个工作日呢？",
+        "answer": "",
+        "sources": [],
+        "events": [
+          "error"
+        ],
+        "answerId": null,
+        "elapsedSeconds": 4.502,
+        "done": false,
+        "cancelled": false,
+        "error": {
+          "answerId": 308,
+          "message": "生成回答时遇到问题，请稍后重试。",
+          "code": "MODEL_REQUEST_FAILED"
+        },
+        "attempts": [
+          {
+            "elapsedSeconds": 4.516,
+            "events": [
+              "error"
+            ],
+            "error": {
+              "answerId": 308,
+              "message": "生成回答时遇到问题，请稍后重试。",
+              "code": "MODEL_REQUEST_FAILED"
+            }
+          }
+        ],
+        "retrievalCorrect": null,
+        "answerCorrect": null,
+        "evidenceSupported": null
+      }
+    ],
+    "retrievalCorrect": null,
+    "answerCorrect": null,
+    "evidenceSupported": null
+  },
+  {
+    "id": "MT02",
+    "category": "multi_turn",
+    "actor": "employee",
+    "kb": "员工服务",
+    "turns": [
+      "报销流程怎么走？",
+      "那如果金额是2500呢？"
+    ],
+    "expected": "员工门户费用与报销；2500元还需部门负责人审批，再财务审核",
+    "source": "03-费用报销-v2.md",
+    "status": "ERROR",
+    "chatId": "2f9b5a0c-56f5-45b7-a43b-d240323d6515",
+    "turnResults": [
+      {
+        "question": "报销流程怎么走？",
+        "answer": "结论：报销需通过员工门户「费用与报销」提交申请，并完成审批与财务审核后付款；差旅报销另有提交时限和附件要求。\n\n依据《03-费用报销-v2.md》版本 2：\n1. 登录员工门户，进入「费用与报销」。\n2. 创建报销申请，选择费用类别和成本中心。\n3. 上传清晰票据；发票抬头使用公司主体信息。\n4. 电子票据需上传原始 PDF 或合规电子凭证，不能用截图替代。\n5. 每笔费用填写日期、金额、事由。\n6. 多人同行时，注明参与人员和费用分摊方式。\n7. 票据金额应与申请金额一致；如部分报销，填写实际申请金额并说明差额。\n8. 审批与财务审核完成后，演示流程预计 5 个工作日内付款；该时限不含退回补正时间。\n\n如为差旅报销，依据《04-差旅申请与标准.md》版本 1：\n- 返程后 10 个工作日内提交差旅报销。\n- 需附已批准的差旅单、交通票据、住宿发票和行程说明。\n- 餐费已包含在客户招待或会议套餐中的，不可重复报销同一餐次。\n- 海外差旅汇率和驻外补助标准当前资料未提供，需向 HR / 财务确认。",
+        "sources": [
+          {
+            "documentId": "3",
+            "versionNo": 2,
+            "title": "费用报销",
+            "fileName": "03-费用报销-v2.md",
+            "fileId": "4",
+            "chunkId": "d6544c1b-6ca6-3f70-ae59-4d53f95b6ded",
+            "excerpt": "员工因公务发生的交通、住宿、办公耗材等合理费用可提交报销；个人消费不属于公务费用。 通过员工门户「费用与报销」创建申请，选择费用类别、成本中心并上传清晰票据。 每笔费用需填写日期、金额、事由；多人同行时注明参与人员和费用分摊方式。",
+            "historical": false
+          },
+          {
+            "documentId": "3",
+            "versionNo": 2,
+            "title": "费用报销",
+            "fileName": "03-费用报销-v2.md",
+            "fileId": "4",
+            "chunkId": "46db3766-ac75-3962-993f-b6e30ab9033a",
+            "excerpt": "发票抬头使用公司主体信息；电子票据需上传原始 PDF 或合规电子凭证，不用截图替代原文件。 票据金额应与申请金额一致；部分报销时填写实际申请金额并说明差额。 审批与财务审核完成后，演示流程预计 5 个工作日内付款；该时限不含退回补正时间。",
+            "historical": false
+          },
+          {
+            "documentId": "4",
+            "versionNo": 1,
+            "title": "04-差旅申请与标准.md",
+            "fileName": "04-差旅申请与标准.md",
+            "fileId": "5",
+            "chunkId": "aed13921-4915-3922-801a-a34060b061f4",
+            "excerpt": "返程后 10 个工作日内提交差旅报销，附已批准的差旅单、交通票据、住宿发票和行程说明。 餐费已包含在客户招待或会议套餐中的，不可重复报销同一餐次。 本资料未提供海外差旅汇率和驻外补助标准，需向 HR / 财务确认。",
+            "historical": false
+          }
+        ],
+        "events": [
+          "meta",
+          "sources",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "done"
+        ],
+        "answerId": 310,
+        "elapsedSeconds": 8.649,
+        "done": true,
+        "cancelled": false,
+        "error": null,
+        "attempts": [
+          {
+            "elapsedSeconds": 8.662,
+            "events": [
+              "meta",
+              "sources",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "done"
+            ],
+            "error": null
+          }
+        ],
+        "retrievalCorrect": null,
+        "answerCorrect": null,
+        "evidenceSupported": null
+      },
+      {
+        "question": "那如果金额是2500呢？",
+        "answer": "",
+        "sources": [],
+        "events": [
+          "error"
+        ],
+        "answerId": null,
+        "elapsedSeconds": 4.284,
+        "done": false,
+        "cancelled": false,
+        "error": {
+          "answerId": 312,
+          "message": "生成回答时遇到问题，请稍后重试。",
+          "code": "MODEL_REQUEST_FAILED"
+        },
+        "attempts": [
+          {
+            "elapsedSeconds": 4.299,
+            "events": [
+              "error"
+            ],
+            "error": {
+              "answerId": 312,
+              "message": "生成回答时遇到问题，请稍后重试。",
+              "code": "MODEL_REQUEST_FAILED"
+            }
+          }
+        ],
+        "retrievalCorrect": null,
+        "answerCorrect": null,
+        "evidenceSupported": null
+      }
+    ],
+    "retrievalCorrect": null,
+    "answerCorrect": null,
+    "evidenceSupported": null
+  },
+  {
+    "id": "CL02",
+    "category": "clarification",
+    "actor": "employee",
+    "kb": "员工服务",
+    "turns": [
+      "费用这个标准是多少？"
+    ],
+    "expected": "询问费用类别、城市或金额情境；不能编造统一标准",
+    "source": "03-费用报销-v2.md",
+    "status": "DONE",
+    "chatId": "80c3344f-55fb-43ff-9777-fa56b1a101b6",
+    "turnResults": [
+      {
+        "question": "费用这个标准是多少？",
+        "answer": "你想了解哪类费用标准，例如住宿、交通还是报销审批限额？",
+        "sources": [],
+        "events": [
+          "meta",
+          "sources",
+          "delta",
+          "done"
+        ],
+        "answerId": 314,
+        "elapsedSeconds": 0.039,
+        "done": true,
+        "cancelled": false,
+        "error": null,
+        "attempts": [
+          {
+            "elapsedSeconds": 0.053,
+            "events": [
+              "meta",
+              "sources",
+              "delta",
+              "done"
+            ],
+            "error": null
+          }
+        ],
+        "retrievalCorrect": null,
+        "answerCorrect": null,
+        "evidenceSupported": null
+      }
+    ],
+    "retrievalCorrect": null,
+    "answerCorrect": null,
+    "evidenceSupported": null
+  },
+  {
+    "id": "CL05",
+    "category": "clarification",
+    "actor": "employee",
+    "kb": "员工服务",
+    "turns": [
+      "这个能报吗？"
+    ],
+    "expected": "询问费用项目和公务用途；说明需要对照票据及报销规则",
+    "source": "03-费用报销-v2.md",
+    "status": "DONE",
+    "chatId": "667ad00b-89fc-4f60-9580-0ce4e7b074a0",
+    "turnResults": [
+      {
+        "question": "这个能报吗？",
+        "answer": "请问具体是什么费用？它是否因公务或工作需要产生？",
+        "sources": [],
+        "events": [
+          "meta",
+          "sources",
+          "delta",
+          "done"
+        ],
+        "answerId": 316,
+        "elapsedSeconds": 0.02,
+        "done": true,
+        "cancelled": false,
+        "error": null,
+        "attempts": [
+          {
+            "elapsedSeconds": 0.034,
+            "events": [
+              "meta",
+              "sources",
+              "delta",
+              "done"
+            ],
+            "error": null
+          }
+        ],
+        "retrievalCorrect": null,
+        "answerCorrect": null,
+        "evidenceSupported": null
+      }
+    ],
+    "retrievalCorrect": null,
+    "answerCorrect": null,
+    "evidenceSupported": null
+  },
+  {
+    "id": "MT04",
+    "category": "multi_turn",
+    "actor": "employee",
+    "kb": "员工服务",
+    "turns": [
+      "出差住宿标准是多少？",
+      "上海住一晚700元能报吗？"
+    ],
+    "expected": "一线城市上限600元；700超标，必须事前部门负责人书面批准",
+    "source": "04-差旅申请与标准.md",
+    "status": "ERROR",
+    "chatId": "57717766-e153-4c98-9628-9440bbf7f0ae",
+    "turnResults": [
+      {
+        "question": "出差住宿标准是多少？",
+        "answer": "出差住宿标准如下（依据《04-差旅申请与标准.md》版本 1）：\n\n- 一线城市：每晚不超过 **600 元**\n- 其他城市：每晚不超过 **450 元**\n\n如住宿费用超过上述标准，需**事前取得部门负责人书面批准**。",
+        "sources": [
+          {
+            "documentId": "4",
+            "versionNo": 1,
+            "title": "04-差旅申请与标准.md",
+            "fileName": "04-差旅申请与标准.md",
+            "fileId": "5",
+            "chunkId": "ac06db55-651f-3819-a004-30acbccf7980",
+            "excerpt": "同城优先公共交通；城际优先二等座高铁。选择其他交通方式时需在申请中说明原因。 演示住宿标准：一线城市每晚不超过 600 元，其他城市每晚不超过 450 元；超标准需事前取得部门负责人书面批准。 机票可选经济舱，退改签费用需说明原因并附承运方凭证。",
+            "historical": false
+          }
+        ],
+        "events": [
+          "meta",
+          "sources",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "done"
+        ],
+        "answerId": 318,
+        "elapsedSeconds": 3.161,
+        "done": true,
+        "cancelled": false,
+        "error": null,
+        "attempts": [
+          {
+            "elapsedSeconds": 3.175,
+            "events": [
+              "meta",
+              "sources",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "done"
+            ],
+            "error": null
+          }
+        ],
+        "retrievalCorrect": null,
+        "answerCorrect": null,
+        "evidenceSupported": null
+      },
+      {
+        "question": "上海住一晚700元能报吗？",
+        "answer": "",
+        "sources": [],
+        "events": [
+          "error"
+        ],
+        "answerId": null,
+        "elapsedSeconds": 3.088,
+        "done": false,
+        "cancelled": false,
+        "error": {
+          "answerId": 320,
+          "message": "生成回答时遇到问题，请稍后重试。",
+          "code": "MODEL_REQUEST_FAILED"
+        },
+        "attempts": [
+          {
+            "elapsedSeconds": 3.091,
+            "events": [
+              "error"
+            ],
+            "error": {
+              "answerId": 320,
+              "message": "生成回答时遇到问题，请稍后重试。",
+              "code": "MODEL_REQUEST_FAILED"
+            }
+          }
+        ],
+        "retrievalCorrect": null,
+        "answerCorrect": null,
+        "evidenceSupported": null
+      }
+    ],
+    "retrievalCorrect": null,
+    "answerCorrect": null,
+    "evidenceSupported": null
+  }
+]

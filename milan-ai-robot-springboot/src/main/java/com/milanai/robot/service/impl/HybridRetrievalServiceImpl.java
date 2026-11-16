@@ -4,6 +4,7 @@ import com.milanai.robot.config.RagProperties;
 import com.milanai.robot.service.EsChunkService;
 import com.milanai.robot.service.FileDocumentGuard;
 import com.milanai.robot.service.HybridRetrievalService;
+import com.milanai.robot.service.KnowledgeDocumentService;
 import com.milanai.robot.utils.RrfFusion;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -14,6 +15,9 @@ import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
@@ -26,23 +30,26 @@ public class HybridRetrievalServiceImpl implements HybridRetrievalService {
     private final FileDocumentGuard guard;
     private final RagProperties properties;
     private final Executor executor;
+    private final KnowledgeDocumentService documents;
 
     public HybridRetrievalServiceImpl(VectorStore vectors, EsChunkService keywords, FileDocumentGuard guard,
+                                      KnowledgeDocumentService documents,
                                       RagProperties properties,
                                       @Qualifier("ragRetrievalExecutor") Executor executor) {
         this.vectors = vectors;
         this.keywords = keywords;
         this.guard = guard;
+        this.documents = Objects.requireNonNull(documents, "Knowledge document service must be provided");
         this.properties = properties;
         this.executor = executor;
     }
 
     @Override
     public List<Document> search(String query, int topK, Long knowledgeBaseId) {
-        long libraryId = knowledgeBaseId == null ? 1L : knowledgeBaseId;
-        if (libraryId < 1 || topK < 1) {
+        if (knowledgeBaseId == null || knowledgeBaseId < 1 || topK < 1) {
             throw new IllegalArgumentException("Knowledge base ID and retrieval limit must be positive");
         }
+        long libraryId = knowledgeBaseId;
         if (query == null || query.isBlank()) {
             return List.of();
         }
@@ -52,14 +59,23 @@ public class HybridRetrievalServiceImpl implements HybridRetrievalService {
             throw new IllegalArgumentException("Retrieval configuration must use positive limits");
         }
         long started = System.nanoTime();
+        Set<Long> allowedFileIds = new LinkedHashSet<>(Objects.requireNonNull(
+                documents.currentPublishedFileIds(libraryId), "Current published file IDs must not be null"));
+        if (allowedFileIds.isEmpty()) {
+            return List.of();
+        }
+        FilterExpressionBuilder filters = new FilterExpressionBuilder();
+        var libraryFilter = filters.eq("knowledge_base_id", Long.toString(libraryId));
+        var filterExpression = filters.and(libraryFilter, filters.in("mdStorageId", allowedFileIds.stream()
+                        .sorted().map(id -> (Object) id).toList())).build();
         SearchRequest request = SearchRequest.builder().query(query).topK(config.getVectorTopK())
-                .filterExpression(new FilterExpressionBuilder().eq("knowledge_base_id", Long.toString(libraryId)).build())
-                .build();
+                .filterExpression(filterExpression).build();
         CompletableFuture<RouteResult> vectorRoute = recall("vector", libraryId,
-                () -> vectors.similaritySearch(request));
+                allowedFileIds, () -> vectors.similaritySearch(request));
         boolean keywordEnabled = properties.getElasticsearch().isEnabled();
         CompletableFuture<RouteResult> keywordRoute = keywordEnabled
-                ? recall("keyword", libraryId, () -> keywords.searchByKeyword(query, config.getKeywordTopK(), libraryId))
+                ? recall("keyword", libraryId, allowedFileIds,
+                        () -> keywords.searchByKeyword(query, config.getKeywordTopK(), libraryId, allowedFileIds))
                 : CompletableFuture.completedFuture(new RouteResult(List.of(), false));
 
         RouteResult vector = vectorRoute.join();
@@ -79,13 +95,15 @@ public class HybridRetrievalServiceImpl implements HybridRetrievalService {
         return result;
     }
 
-    private CompletableFuture<RouteResult> recall(String route, long libraryId, Supplier<List<Document>> search) {
+    private CompletableFuture<RouteResult> recall(String route, long libraryId, Set<Long> allowedFileIds,
+                                                  Supplier<List<Document>> search) {
         try {
             return CompletableFuture.supplyAsync(() -> {
                 long started = System.nanoTime();
                 try {
                     List<Document> recalled = search.get();
-                    List<Document> owned = guard.retainOwned(recalled == null ? List.of() : recalled, libraryId);
+                    List<Document> owned = guard.retainOwned(recalled == null ? List.of() : recalled,
+                            libraryId, allowedFileIds);
                     RouteResult result = new RouteResult(List.copyOf(owned), true);
                     log.info("RAG recall route={} knowledgeBaseId={} count={} elapsedMs={}",
                             route, libraryId, result.documents().size(), elapsedMs(started));

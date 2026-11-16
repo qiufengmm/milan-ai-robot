@@ -18,8 +18,9 @@ import java.time.LocalDate;
 @Builder
 public class FindMarkdownFilePageListReqVO extends BasePageQuery {
 
-    @Builder.Default
-    private Long knowledgeBaseId = 1L;
+    @jakarta.validation.constraints.NotNull
+    @jakarta.validation.constraints.Positive
+    private Long knowledgeBaseId;
 
     /**
      * 文件名称

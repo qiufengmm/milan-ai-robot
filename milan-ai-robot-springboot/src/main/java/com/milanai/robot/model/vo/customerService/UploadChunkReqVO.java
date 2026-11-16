@@ -15,8 +15,12 @@ import org.springframework.web.multipart.MultipartFile;
 @Builder
 public class UploadChunkReqVO {
 
-    @Builder.Default
-    private Long knowledgeBaseId = 1L;
+    @jakarta.validation.constraints.NotNull
+    @jakarta.validation.constraints.Positive
+    private Long knowledgeBaseId;
+
+    /** Existing logical document to replace; absent means a new logical document. */
+    private Long documentId;
 
     /**
      * 文件 MD5

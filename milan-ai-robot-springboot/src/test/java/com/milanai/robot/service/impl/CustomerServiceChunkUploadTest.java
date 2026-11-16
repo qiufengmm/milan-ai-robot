@@ -30,8 +30,8 @@ class CustomerServiceChunkUploadTest {
     private final List<AiCustomerServiceMdUploadedEvent> events=new ArrayList<>();
     private final AtomicLong sequence=new AtomicLong(1);
     private CustomerServiceImpl service;
-    private static final byte[] FIRST="Product warranty ".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] LAST="is twelve months.".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] FIRST="Employees complete ".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] LAST="security learning within five working days.".getBytes(StandardCharsets.UTF_8);
 
     @BeforeEach
     void setUp() {
@@ -85,6 +85,10 @@ class CustomerServiceChunkUploadTest {
         ReflectionTestUtils.setField(service,"knowledgeBaseService",libraries);
         ReflectionTestUtils.setField(service,"ragIndexService",indexes);
         ReflectionTestUtils.setField(service,"vectorStore",mock(VectorStore.class));
+        ReflectionTestUtils.setField(service,"documentService",mock(KnowledgeDocumentService.class));
+        var access=mock(KnowledgeAccessService.class);
+        when(access.currentUser()).thenReturn(new EnterpriseUserDetails(9L,"hr","HR","USER","hash",true,List.of()));
+        ReflectionTestUtils.setField(service,"knowledgeAccess",access);
     }
     @AfterEach void clearSynchronization(){if(TransactionSynchronizationManager.isSynchronizationActive())TransactionSynchronizationManager.clearSynchronization();}
 
@@ -106,6 +110,20 @@ class CustomerServiceChunkUploadTest {
         upload(1,md5,0,2,FIRST.length+LAST.length,FIRST,"faq.txt");
         assertThat(chunks).hasSize(1);
         assertThat(files.get(key(1L,md5)).getUploadedChunks()).isEqualTo(1);
+    }
+    @Test void enterpriseUploadCreatesOneDraftVersionAndRepeatedBytesDoNotAllocateAnother() throws Exception {
+        var documents=mock(KnowledgeDocumentService.class);
+        var access=mock(KnowledgeAccessService.class);
+        var user=new EnterpriseUserDetails(9L,"hr","HR","USER","hash",true,List.of());
+        when(access.currentUser()).thenReturn(user);
+        ReflectionTestUtils.setField(service,"documentService",documents);
+        ReflectionTestUtils.setField(service,"knowledgeAccess",access);
+        String md5=hash(FIRST);
+
+        upload(2,md5,0,1,FIRST.length,FIRST,"policy.txt");
+        upload(2,md5,0,1,FIRST.length,FIRST,"policy.txt");
+
+        verify(documents,times(1)).attachDraftToUpload(anyLong(),eq(2L),eq("policy.txt"),isNull(),eq(9L));
     }
     @Test void missingChunkCannotBeMerged() throws Exception {
         String md5=hash(FIRST,LAST);
@@ -129,6 +147,18 @@ class CustomerServiceChunkUploadTest {
         upload(1,md5,0,1,FIRST.length+1,FIRST,"faq.txt");
         assertThatThrownBy(() -> service.mergeChunk(merge(1,md5))).isInstanceOf(BizException.class);
         assertThat(events).isEmpty();
+    }
+    @Test void cumulativeChunkBytesCannotExceedDeclaredFileSize() throws Exception {
+        String md5=hash(FIRST,LAST);
+        long declaredSize=FIRST.length+LAST.length-1L;
+        upload(1,md5,0,2,declaredSize,FIRST,"faq.txt");
+
+        assertThatThrownBy(() -> upload(1,md5,1,2,declaredSize,LAST,"faq.txt"))
+                .isInstanceOf(BizException.class).extracting("errorCode").isEqualTo("20011");
+        assertThat(chunks).hasSize(1);
+        Path chunkDirectory=directory.resolve("chunks").resolve("1").resolve(md5);
+        assertThat(chunkDirectory.resolve("0.chunk")).exists();
+        assertThat(chunkDirectory.resolve("1.chunk")).doesNotExist();
     }
     @Test void repeatedMergeDoesNotRepublishOrOverwrite() throws Exception {
         String md5=hash(FIRST);
@@ -171,7 +201,7 @@ class CustomerServiceChunkUploadTest {
     @Test void failedParsingIsNotReportedAsSearchableSuccess() throws Exception {
         String md5=hash(FIRST);upload(1,md5,0,1,FIRST.length,FIRST,"faq.txt");service.mergeChunk(merge(1,md5));
         files.get(key(1L,md5)).setStatus(4);
-        var check=service.checkFile(CheckFileReqVO.builder().fileMd5(md5).build()).getData();
+        var check=service.checkFile(CheckFileReqVO.builder().fileMd5(md5).knowledgeBaseId(1L).build()).getData();
         assertThat(check.getStatus()).isEqualTo(4);assertThat(check.getIndexStatus()).isEqualTo("NOT_READY");
     }
     @Test void outOfRangeChunkAndPathTraversalNamesAreRejected() throws Exception {

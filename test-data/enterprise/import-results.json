@@ -1,0 +1,191 @@
+{
+  "fictional": true,
+  "apiBase": "http://localhost:8080",
+  "users": {
+    "admin": {
+      "id": null,
+      "username": "enterprise.admin"
+    },
+    "hr": {
+      "id": 2,
+      "username": "demo.hr"
+    },
+    "it": {
+      "id": 3,
+      "username": "demo.it"
+    },
+    "employee": {
+      "id": 4,
+      "username": "demo.employee"
+    },
+    "kb:员工服务": {
+      "id": 1,
+      "name": "员工服务"
+    },
+    "kb:IT 支持": {
+      "id": 2,
+      "name": "IT 支持"
+    }
+  },
+  "documents": {
+    "hr-onboarding": [
+      {
+        "documentId": 1,
+        "fileId": 1,
+        "versionNo": 1,
+        "fileName": "01-员工入职与考勤.md",
+        "knowledgeBaseId": 1,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ],
+    "hr-leave": [
+      {
+        "documentId": 2,
+        "fileId": 2,
+        "versionNo": 1,
+        "fileName": "02-请假与出勤申请.md",
+        "knowledgeBaseId": 1,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ],
+    "hr-expense": [
+      {
+        "documentId": 3,
+        "fileId": 3,
+        "versionNo": 1,
+        "fileName": "03-费用报销-v1.md",
+        "knowledgeBaseId": 1,
+        "publishStatus": "ARCHIVED",
+        "reused": true
+      },
+      {
+        "documentId": 3,
+        "fileId": 4,
+        "versionNo": 2,
+        "fileName": "03-费用报销-v2.md",
+        "knowledgeBaseId": 1,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ],
+    "hr-travel": [
+      {
+        "documentId": 4,
+        "fileId": 5,
+        "versionNo": 1,
+        "fileName": "04-差旅申请与标准.md",
+        "knowledgeBaseId": 1,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ],
+    "hr-equipment": [
+      {
+        "documentId": 5,
+        "fileId": 6,
+        "versionNo": 1,
+        "fileName": "05-设备办公与领用.md",
+        "knowledgeBaseId": 1,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ],
+    "hr-service": [
+      {
+        "documentId": 6,
+        "fileId": 7,
+        "versionNo": 1,
+        "fileName": "06-员工服务目录与联系渠道.md",
+        "knowledgeBaseId": 1,
+        "publishStatus": "ARCHIVED",
+        "reused": true
+      },
+      {
+        "documentId": 6,
+        "fileId": 15,
+        "versionNo": 2,
+        "fileName": "06-员工服务目录与联系渠道-v2.md",
+        "knowledgeBaseId": 1,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ],
+    "it-account": [
+      {
+        "documentId": 7,
+        "fileId": 8,
+        "versionNo": 1,
+        "fileName": "07-账号与密码安全.md",
+        "knowledgeBaseId": 2,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ],
+    "it-vpn": [
+      {
+        "documentId": 8,
+        "fileId": 9,
+        "versionNo": 1,
+        "fileName": "08-VPN远程接入.md",
+        "knowledgeBaseId": 2,
+        "publishStatus": "ARCHIVED",
+        "reused": true
+      },
+      {
+        "documentId": 8,
+        "fileId": 14,
+        "versionNo": 2,
+        "fileName": "08-VPN远程接入-v2.md",
+        "knowledgeBaseId": 2,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ],
+    "it-network": [
+      {
+        "documentId": 9,
+        "fileId": 10,
+        "versionNo": 1,
+        "fileName": "09-Wi-Fi与办公网络.md",
+        "knowledgeBaseId": 2,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ],
+    "it-email": [
+      {
+        "documentId": 10,
+        "fileId": 11,
+        "versionNo": 1,
+        "fileName": "10-企业邮箱与日历.md",
+        "knowledgeBaseId": 2,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ],
+    "it-software": [
+      {
+        "documentId": 11,
+        "fileId": 12,
+        "versionNo": 1,
+        "fileName": "11-软件安装与更新.md",
+        "knowledgeBaseId": 2,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ],
+    "it-devices": [
+      {
+        "documentId": 12,
+        "fileId": 13,
+        "versionNo": 1,
+        "fileName": "12-设备与打印机排障.md",
+        "knowledgeBaseId": 2,
+        "publishStatus": "PUBLISHED",
+        "reused": true
+      }
+    ]
+  }
+}

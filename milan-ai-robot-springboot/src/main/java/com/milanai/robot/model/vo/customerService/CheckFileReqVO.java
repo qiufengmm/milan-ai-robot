@@ -15,8 +15,9 @@ import lombok.NoArgsConstructor;
 @Builder
 public class CheckFileReqVO {
 
-    @Builder.Default
-    private Long knowledgeBaseId = 1L;
+    @jakarta.validation.constraints.NotNull
+    @jakarta.validation.constraints.Positive
+    private Long knowledgeBaseId;
 
     @NotBlank(message = "文件 MD5 不能为空")
     private String fileMd5;

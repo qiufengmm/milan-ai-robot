@@ -35,8 +35,10 @@ logs/
 ### ---------- 运行时数据（Markdown 知识库本地存储等） ---------- ###
 data/
 
-# 本地数据库备份（演示知识库由 Markdown 源文件重新导入）
-test-data/ecommerce/eval/*backup*.sql
+# 本地测试数据备份（不忽略语料及评测 JSON / 报告）
+test-data/**/*backup*.sql
+test-data/**/*.dump
+test-data/**/*.backup
 
 ### ---------- IDE ---------- ###
 .idea/
@@ -57,7 +59,3 @@ test-data/ecommerce/eval/*backup*.sql
 .DS_Store
 Thumbs.db
 desktop.ini
-
-### ---------- bench 探针本地产物 ---------- ###
-bench/.classpath.txt
-bench/classes/

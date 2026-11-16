@@ -1,4 +1,4 @@
--- Chapter 15 upgrade. Run migrate_chunk_upload.sql first. Safe to rerun.
+-- Knowledge-base/index migration. Run migrate_chunk_upload.sql first. Safe to rerun.
 -- Reuses embeddings; unowned vectors are retained but never served.
 BEGIN;
 CREATE TABLE IF NOT EXISTS t_knowledge_base (
@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS t_knowledge_base (
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 INSERT INTO t_knowledge_base(id,name,description) VALUES
-    (1,'米兰数码商城','虚构电商演示知识库：商品咨询、配送、退换货及保修规则') ON CONFLICT(id) DO NOTHING;
+    (1,'员工服务','员工政策与人事服务知识库') ON CONFLICT(id) DO NOTHING;
 SELECT setval(pg_get_serial_sequence('t_knowledge_base','id'),
     greatest((SELECT coalesce(max(id),1) FROM t_knowledge_base),
         (SELECT last_value FROM t_knowledge_base_id_seq)), true);

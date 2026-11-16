@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -251,7 +252,7 @@ class EsChunkServiceImplTest {
     void nativeBm25MatchFiltersKnowledgeBeforeRecallAndRestoresMetadata() {
         reply(200, searchResponse("7"));
 
-        List<Document> found = service.searchByKeyword("键盘保修", 3, 7L);
+        List<Document> found = service.searchByKeyword("键盘保修", 3, 7L, Set.of(42L));
 
         CapturedRequest search = request();
         assertThat(search.method()).isEqualTo("POST");
@@ -272,26 +273,52 @@ class EsChunkServiceImplTest {
     }
 
     @Test
-    void missingSearchKnowledgeDefaultsToOneInsteadOfUnrestrictedQuery() {
+    void keywordQueryFiltersToCurrentPublishedFileIdsBeforeTopK() {
+        reply(200, searchResponse("7"));
+
+        service.searchByKeyword("键盘保修", 3, 7L, Set.of(42L, 43L));
+
+        JsonNode filters = json(request().body()).path("query").path("bool").path("filter");
+        assertThat(filters.get(0).path("term").path("knowledge_base_id").asString()).isEqualTo("7");
+        JsonNode ids = filters.get(1).path("terms").path("mdStorageId");
+        assertThat(ids.isArray()).isTrue();
+        assertThat(ids.size()).isEqualTo(2);
+        assertThat(ids.get(0).asString()).isEqualTo("42");
+        assertThat(ids.get(1).asString()).isEqualTo("43");
+    }
+
+    @Test
+    void emptyPublishedFileSetNeverCallsElasticsearch() {
+        assertThat(service.searchByKeyword("键盘保修", 3, 7L, Set.of())).isEmpty();
+        assertThat(requests).isEmpty();
+    }
+
+    @Test
+    void missingSearchKnowledgeIsRejectedBeforeHttp() {
         reply(200, searchResponse("1"));
-        service.searchByKeyword("退款", 10, null);
-        JsonNode body = json(request().body());
-        assertThat(body.path("query").path("bool").path("filter").get(0)
-                .path("term").path("knowledge_base_id").asString()).isEqualTo("1");
+        assertThatIllegalArgumentException().isThrownBy(() -> service.searchByKeyword("报销", 10, null, Set.of(42L)));
+        assertThat(requests).isEmpty();
+    }
+
+    @Test
+    void missingPublishedFileSetCannotIssueUnfilteredKeywordQuery() {
+        reply(200, searchResponse("7"));
+        assertThatIllegalArgumentException().isThrownBy(() -> service.searchByKeyword("报销", 10, 7L, null));
+        assertThat(requests).isEmpty();
     }
 
     @Test
     void rejectsInvalidSearchScopeAndLimitBeforeRecall() {
-        assertThatIllegalArgumentException().isThrownBy(() -> service.searchByKeyword("退款", 10, 0L));
-        assertThatIllegalArgumentException().isThrownBy(() -> service.searchByKeyword("退款", 10, -1L));
-        assertThatIllegalArgumentException().isThrownBy(() -> service.searchByKeyword("退款", 0, 1L));
+        assertThatIllegalArgumentException().isThrownBy(() -> service.searchByKeyword("报销", 10, 0L, Set.of(42L)));
+        assertThatIllegalArgumentException().isThrownBy(() -> service.searchByKeyword("报销", 10, -1L, Set.of(42L)));
+        assertThatIllegalArgumentException().isThrownBy(() -> service.searchByKeyword("报销", 0, 1L, Set.of(42L)));
         assertThat(requests).isEmpty();
     }
 
     @Test
     void blankSearchDoesNotCallElasticsearch() {
-        assertThat(service.searchByKeyword("  ", 10, 1L)).isEmpty();
-        assertThat(service.searchByKeyword(null, 10, 1L)).isEmpty();
+        assertThat(service.searchByKeyword("  ", 10, 1L, Set.of(42L))).isEmpty();
+        assertThat(service.searchByKeyword(null, 10, 1L, Set.of(42L))).isEmpty();
         assertThat(requests).isEmpty();
     }
 
@@ -303,13 +330,13 @@ class EsChunkServiceImplTest {
     })
     void refusesIncompleteOrMalformedSearchResults(String response) {
         reply(200, response);
-        assertThatIllegalStateException().isThrownBy(() -> service.searchByKeyword("退款", 10, 7L));
+        assertThatIllegalStateException().isThrownBy(() -> service.searchByKeyword("报销", 10, 7L, Set.of(42L)));
     }
 
     @Test
     void refusesSearchHitFromAnotherKnowledgeBase() {
         reply(200, searchResponse("8"));
-        assertThatIllegalStateException().isThrownBy(() -> service.searchByKeyword("保修", 10, 7L));
+        assertThatIllegalStateException().isThrownBy(() -> service.searchByKeyword("保修", 10, 7L, Set.of(42L)));
     }
 
     @ParameterizedTest
@@ -318,19 +345,19 @@ class EsChunkServiceImplTest {
         var response = (tools.jackson.databind.node.ObjectNode) json(searchResponse("7"));
         ((tools.jackson.databind.node.ObjectNode) response.path("hits").path("hits").get(0)).remove(field);
         reply(200, mapper.writeValueAsString(response));
-        assertThatIllegalStateException().isThrownBy(() -> service.searchByKeyword("保修", 10, 7L));
+        assertThatIllegalStateException().isThrownBy(() -> service.searchByKeyword("保修", 10, 7L, Set.of(42L)));
     }
 
     @Test
     void propagatesSearchHttpFailureToHybridFallback() {
         reply(503, "{\"error\":\"unavailable\"}");
-        assertThatIllegalStateException().isThrownBy(() -> service.searchByKeyword("退款", 10, 7L));
+        assertThatIllegalStateException().isThrownBy(() -> service.searchByKeyword("报销", 10, 7L, Set.of(42L)));
     }
 
     @Test
     void successfulZeroHitResponseReturnsEmptyCandidates() {
         reply(200, "{\"timed_out\":false,\"_shards\":{\"failed\":0},\"hits\":{\"hits\":[]}}");
-        assertThat(service.searchByKeyword("无匹配", 10, 7L)).isEmpty();
+        assertThat(service.searchByKeyword("无匹配", 10, 7L, Set.of(42L))).isEmpty();
     }
 
     @Test
@@ -368,7 +395,7 @@ class EsChunkServiceImplTest {
         properties.getElasticsearch().setEnabled(false);
         service = new EsChunkServiceImpl(client, mapper, properties);
         service.ensureIndex();
-        assertThat(service.searchByKeyword("退款", 10, null)).isEmpty();
+        assertThat(service.searchByKeyword("报销", 10, 7L, Set.of(42L))).isEmpty();
         assertThatIllegalStateException().isThrownBy(() -> service.upsert(List.of(ownedDocument())));
         assertThatIllegalStateException().isThrownBy(() -> service.deleteByFileId(42L));
         assertThat(requests).isEmpty();

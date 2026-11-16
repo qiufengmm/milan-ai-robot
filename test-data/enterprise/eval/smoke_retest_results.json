@@ -1,0 +1,171 @@
+[
+  {
+    "id": "CL04",
+    "category": "clarification",
+    "actor": "employee",
+    "kb": "IT 支持",
+    "turns": [
+      "登录不了，帮我看看。"
+    ],
+    "expected": "询问具体系统、提示或是否账号锁定；不声称可查看账号",
+    "source": "07-账号与密码安全.md",
+    "status": "DONE",
+    "chatId": "87d0166c-77ea-4f79-8ec9-a325ac249673",
+    "turnResults": [
+      {
+        "question": "登录不了，帮我看看。",
+        "answer": "请问是哪个系统或客户端登录不了？页面显示的具体错误提示是什么？",
+        "sources": [],
+        "events": [
+          "meta",
+          "sources",
+          "delta",
+          "done"
+        ],
+        "answerId": 20,
+        "elapsedSeconds": 0.121,
+        "done": true,
+        "cancelled": false,
+        "error": null,
+        "attempts": [
+          {
+            "elapsedSeconds": 0.139,
+            "events": [
+              "meta",
+              "sources",
+              "delta",
+              "done"
+            ],
+            "error": null
+          }
+        ],
+        "retrievalCorrect": null,
+        "answerCorrect": null,
+        "evidenceSupported": null
+      }
+    ],
+    "retrievalCorrect": null,
+    "answerCorrect": null,
+    "evidenceSupported": null
+  },
+  {
+    "id": "VER01",
+    "category": "version",
+    "actor": "employee",
+    "kb": "员工服务",
+    "turns": [
+      "现在报销最晚几天内提交？"
+    ],
+    "expected": "当前v2为费用发生后20个自然日；引用v2资料",
+    "source": "03-费用报销-v2.md",
+    "status": "DONE",
+    "chatId": "5755156f-b845-45de-a1ff-045c3394c00d",
+    "turnResults": [
+      {
+        "question": "现在报销最晚几天内提交？",
+        "answer": "当前一般费用报销：费用发生后 **20 个自然日内** 提交。依据：`03-费用报销-v2.md`，版本 2。\n\n如果你指的是差旅报销：返程后 **10 个工作日内** 提交。依据：`04-差旅申请与标准.md`，版本 1。",
+        "sources": [
+          {
+            "documentId": "3",
+            "versionNo": 2,
+            "title": "03-费用报销-v1.md",
+            "fileName": "03-费用报销-v2.md",
+            "fileId": "4",
+            "chunkId": "8042331c-c620-306c-be4d-f7280d4f1947",
+            "excerpt": "**当前规则：费用发生后 20 个自然日内提交。**逾期需由部门负责人补充说明并由财务审核。 单笔 2,000 元以内由直属主管审批；超过 2,000 元还需部门负责人审批；财务完成合规审核后进入付款队列。 机器人不能提交、审批或查询真实报销单状态。",
+            "historical": false
+          },
+          {
+            "documentId": "4",
+            "versionNo": 1,
+            "title": "04-差旅申请与标准.md",
+            "fileName": "04-差旅申请与标准.md",
+            "fileId": "5",
+            "chunkId": "aed13921-4915-3922-801a-a34060b061f4",
+            "excerpt": "返程后 10 个工作日内提交差旅报销，附已批准的差旅单、交通票据、住宿发票和行程说明。 餐费已包含在客户招待或会议套餐中的，不可重复报销同一餐次。 本资料未提供海外差旅汇率和驻外补助标准，需向 HR / 财务确认。",
+            "historical": false
+          },
+          {
+            "documentId": "3",
+            "versionNo": 2,
+            "title": "03-费用报销-v1.md",
+            "fileName": "03-费用报销-v2.md",
+            "fileId": "4",
+            "chunkId": "5551e306-3c9f-3669-9cde-4b3d0e6ae90e",
+            "excerpt": "v1 期限为 30 个自然日，已经归档，不再用于当前问答；v2 当前发布期限为 20 个自然日。",
+            "historical": false
+          }
+        ],
+        "events": [
+          "meta",
+          "sources",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "done"
+        ],
+        "answerId": 22,
+        "elapsedSeconds": 8.796,
+        "done": true,
+        "cancelled": false,
+        "error": null,
+        "attempts": [
+          {
+            "elapsedSeconds": 8.812,
+            "events": [
+              "meta",
+              "sources",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "done"
+            ],
+            "error": null
+          }
+        ],
+        "retrievalCorrect": null,
+        "answerCorrect": null,
+        "evidenceSupported": null
+      }
+    ],
+    "retrievalCorrect": null,
+    "answerCorrect": null,
+    "evidenceSupported": null
+  }
+]

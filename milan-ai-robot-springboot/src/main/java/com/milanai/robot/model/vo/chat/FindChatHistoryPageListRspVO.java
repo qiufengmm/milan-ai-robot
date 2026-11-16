@@ -28,6 +28,9 @@ public class FindChatHistoryPageListRspVO {
      * 对话摘要
      */
     private String summary;
+
+    /** Enterprise-only session scope; old development sessions leave this null. */
+    private Long knowledgeBaseId;
     /**
      * 更新时间
      */

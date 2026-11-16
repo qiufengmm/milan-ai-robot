@@ -23,13 +23,13 @@ rag:
   elasticsearch:
     enabled: true
     url: http://127.0.0.1:19200
-    index-name: milan_rag_chunks_v1
+    index-name: milan_enterprise_chunks_v1
     analyzer: ik_max_word
     search-analyzer: ik_smart
     timeout-seconds: 10
 ```
 
-The application calls `EsChunkService.ensureIndex()` before synchronization; the container does not create or reset business indexes. A single-node cluster may be yellow when an index requests replicas, because replicas cannot be assigned to the same node as their primary. The health check accepts yellow or green.
+These settings are in the backend's unified `application.yml`; `ENTERPRISE_ELASTICSEARCH_URL` can override the endpoint. The application calls `EsChunkService.ensureIndex()` before synchronization; the container does not create or reset business indexes. A single-node cluster may be yellow when an index requests replicas, because replicas cannot be assigned to the same node as their primary. The health check accepts yellow or green.
 
 To pause the service while preserving all data:
 
@@ -37,4 +37,4 @@ To pause the service while preserving all data:
 docker compose -f docker/elasticsearch/compose.yml stop
 ```
 
-Do not remove its volume or reset an index to follow tutorial experiments. Version upgrades require a separately planned migration and a matching IK plugin package.
+Keep the existing volume and business indexes when updating the application. Version upgrades require a separately planned migration and a matching IK plugin package.

@@ -30,13 +30,24 @@ const renderedContent = ref('')
 
 // 初始化 MarkdownIt
 const md = new MarkdownIt({
-  html: true,        // 允许解析 HTML 标签
+  html: false,       // Model answers and source text are untrusted Markdown.
   xhtmlOut: true,    // 输出符合 XHTML 规范的标签（如 <br /> 而不是 <br>）
   linkify: true,     // 自动将文本中的 URL 转换为可点击的链接
   typographer: true, // 启用排版优化
   breaks: true,       // 将单个换行符 (\n) 转换为 <br>
   langPrefix: 'language-', // 代码块的语言类名前缀（默认 'language-'）。例如 ```js 会生成 <pre><code class="language-js">
 })
+
+md.validateLink = (value) => {
+  const url = String(value || '').trim()
+  if (/^(https?:\/\/|mailto:)/i.test(url)) return true
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith('//')) return false
+  return true
+}
+
+const escapeHtml = (value) => String(value).replace(/[&<>"']/g, char => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[char]))
 
 // 使用代码高亮插件
 md.use(markdownItHighlightJs, { 
@@ -63,7 +74,7 @@ md.renderer.rules.fence = function (tokens, idx, options, env, renderer) {
   if (info) {
     // 分割信息字符串
     const langCode = info.split(/\s+/g)[0] // 取第一个部分作为语言标识，如 ```js
-    langName = langCode.toLowerCase() // 转换为小写统一格式
+    langName = escapeHtml(langCode.toLowerCase()) // Safe text in the custom HTML code header.
   }
   
   // 使用默认渲染器生成代码块的 HTML 内容

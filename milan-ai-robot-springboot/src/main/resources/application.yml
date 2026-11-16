@@ -1,48 +1,58 @@
+# 企业内部知识库问答：统一配置，认证与知识库授权始终启用。
+# Key、密码和本机覆盖项存放于已忽略的 application-secret.yml。
 server:
-  port: 8080 # 项目启动端口
-
+  port: 8080
+  servlet:
+    session:
+      timeout: 8h
 spring:
-  profiles:
-    active: dev
-  # 引入本地密钥文件。该文件已加入 .gitignore，不随源码分发，里面存放 api-key 等敏感配置。
-  # optional 前缀表示文件不存在时也能正常启动，不会因为缺少密钥文件而启动失败。
-  #
-  # ⚠️ 配置优先级（高 → 低）：
-  #     application-dev.yml  >  application-secret.yml（被导入）  >  application.yml（本文件）
-  # 因此，凡是「需要允许本地覆盖、又不该进版本库」的配置（如专属网关地址、本机存储目录），
-  # 默认值要写在本文件，再由 application-secret.yml 覆盖；
-  # 如果写进 application-dev.yml，就会把 application-secret.yml 里的同名配置压住，导致覆盖失效。
   config:
     import: optional:classpath:application-secret.yml
   ai:
     openai:
-      # OpenAI 兼容接口地址，默认使用阿里云百炼公共网关。
-      # 若使用专属部署，请在 application-secret.yml 中覆盖本项。
+      api-key: ${DASHSCOPE_API_KEY:}
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      embedding:
+        model: qwen3.7-text-embedding-flash
+        dimensions: 1024
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1024
+        max-document-batch-size: 10000
+        table-name: t_vector_store
+        initialize-schema: false
   servlet:
     multipart:
-      # 分片上传走的是表单提交，默认单个文件上限只有 1MB，会把 2MB 的分片直接拒掉（413）。
-      # 这里放到 10MB，留出余量；分片大小由前端 CHUNK_SIZE 控制（当前 2MB）。
-      max-file-size: 10MB # 单个文件大小限制
-      max-request-size: 10MB # 总请求大小限制
-
-# 知识库文件落盘目录。相对路径基于启动目录，也可填绝对路径（Windows 用双反斜杠）。
-# 想在本机固定到某个目录、又不希望写进版本库，可在 application-secret.yml 中覆盖本项。
+      max-file-size: 10MB
+      max-request-size: 10MB
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://${MILAN_ENTERPRISE_DB_HOST:localhost}:${MILAN_ENTERPRISE_DB_PORT:5432}/${MILAN_ENTERPRISE_DB_NAME:milan_enterprise}
+    username: ${MILAN_ENTERPRISE_DB_USERNAME:postgres}
+    password: ${MILAN_ENTERPRISE_DB_PASSWORD}
+    hikari:
+      pool-name: MilanEnterprise-HikariCP
+      maximum-pool-size: 15
+      minimum-idle: 2
+  session:
+    cookie:
+      http-only: true
+      same-site: lax
+      secure: ${ENTERPRISE_SESSION_COOKIE_SECURE:false}
 customer-service:
-  # 合并后的大文件存放目录
-  file-storage-path: ./data/file-storage
-  # 分片小文件存放目录（每个文件一个以 MD5 命名的子目录），合并成功后会被自动清理
-  chunk-path: ./data/chunk
-
+  file-storage-path: ./data/enterprise/file-storage
+  chunk-path: ./data/enterprise/chunk
+  model: qwen3.8-flash
+  temperature: 0.0
 logging:
-  config: classpath:log4j2.xml # 设置日志配置文件路径
-
-# 检索与索引配置。密钥和专属网关只放 application-secret.yml。
+  config: classpath:log4j2.xml
 rag:
   elasticsearch:
     enabled: true
-    url: http://localhost:19200
-    index-name: milan_rag_chunks_v1
+    url: ${ENTERPRISE_ELASTICSEARCH_URL:http://localhost:19200}
+    index-name: milan_enterprise_chunks_v1
     analyzer: ik_max_word
     search-analyzer: ik_smart
     timeout-seconds: 10
@@ -52,11 +62,22 @@ rag:
     keyword-top-k: 10
     fused-top-k: 10
     rrf-k: 60
-    log-evidence: false # 仅本地评测开启，日志包含知识正文
+    log-evidence: false
   rerank:
     enabled: true
     model: qwen3-rerank
     top-n: 3
     timeout-seconds: 15
-    # 默认使用现有账号 Key，从兼容网关 origin 推导原生 DashScope 路径。
-    # 独立地址/Key 可在 application-secret.yml 设置 rag.rerank.api-url/api-key。
+    min-relevance-score: 0.5
+okhttp:
+  connect-timeout: 5000
+  read-timeout: 30000
+  write-timeout: 15000
+  max-idle-connections: 200
+  keep-alive-duration: 5
+enterprise:
+  bootstrap-admin:
+    enabled: ${ENTERPRISE_BOOTSTRAP_ADMIN_ENABLED:false}
+    username: ${ENTERPRISE_BOOTSTRAP_ADMIN_USERNAME:}
+    display-name: ${ENTERPRISE_BOOTSTRAP_ADMIN_DISPLAY_NAME:}
+    password: ${ENTERPRISE_BOOTSTRAP_ADMIN_PASSWORD:}

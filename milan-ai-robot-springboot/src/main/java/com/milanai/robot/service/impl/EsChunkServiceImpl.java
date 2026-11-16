@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /** File-owned chunk storage and native BM25 retrieval over the Elasticsearch REST API. */
@@ -157,14 +158,20 @@ public class EsChunkServiceImpl implements EsChunkService {
     }
 
     @Override
-    public List<Document> searchByKeyword(String query, int topK, Long knowledgeBaseId) {
-        String knowledgeId = positiveId(knowledgeBaseId == null ? 1L : knowledgeBaseId, "knowledge_base_id");
+    public List<Document> searchByKeyword(String query, int topK, Long knowledgeBaseId, Set<Long> allowedFileIds) {
+        String knowledgeId = positiveId(knowledgeBaseId, "knowledge_base_id");
         if (topK <= 0) throw new IllegalArgumentException("Keyword result limit must be positive");
+        if (allowedFileIds == null) throw new IllegalArgumentException("Published file IDs must be provided");
+        if (allowedFileIds.isEmpty()) return List.of();
         if (!enabled || query == null || query.isBlank()) return List.of();
 
+        List<Map<String, Object>> filters = new ArrayList<>();
+        filters.add(Map.of("term", Map.of("knowledge_base_id", knowledgeId)));
+        List<String> fileIds = allowedFileIds.stream().sorted().map(String::valueOf).toList();
+        filters.add(Map.of("terms", Map.of("mdStorageId", fileIds)));
         Map<String, Object> scopedMatch = Map.of("bool", Map.of(
                 "must", List.of(Map.of("match", Map.of("content", Map.of("query", query)))),
-                "filter", List.of(Map.of("term", Map.of("knowledge_base_id", knowledgeId)))));
+                "filter", filters));
         JsonNode response = successfulJson(execute(jsonRequest(endpoint("_search"), "POST",
                 Map.of("size", topK, "query", scopedMatch))));
         if (!falseBoolean(response.path("timed_out")) || !zeroInteger(response.path("_shards").path("failed"))) {

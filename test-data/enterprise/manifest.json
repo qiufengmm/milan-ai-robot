@@ -1,0 +1,28 @@
+{
+  "fictional": true,
+  "knowledgeBases": [
+    {"name": "员工服务", "description": "虚构员工制度演示知识库", "editor": "hr", "readers": ["employee"]},
+    {"name": "IT 支持", "description": "虚构 IT 指引演示知识库", "editor": "it", "readers": ["employee"]}
+  ],
+  "users": [
+    {"key": "hr", "username": "demo.hr", "displayName": "演示 HR 维护者"},
+    {"key": "it", "username": "demo.it", "displayName": "演示 IT 维护者"},
+    {"key": "employee", "username": "demo.employee", "displayName": "演示员工"}
+  ],
+  "documents": [
+    {"key": "hr-onboarding", "knowledgeBase": "员工服务", "title": "员工入职与考勤", "file": "01-员工入职与考勤.md"},
+    {"key": "hr-leave", "knowledgeBase": "员工服务", "title": "请假与出勤申请", "file": "02-请假与出勤申请.md"},
+    {"key": "hr-expense", "knowledgeBase": "员工服务", "title": "费用报销", "file": "03-费用报销-v1.md", "versions": ["03-费用报销-v1.md", "03-费用报销-v2.md"]},
+    {"key": "hr-travel", "knowledgeBase": "员工服务", "title": "差旅申请与标准", "file": "04-差旅申请与标准.md"},
+    {"key": "hr-equipment", "knowledgeBase": "员工服务", "title": "设备办公与领用", "file": "05-设备办公与领用.md"},
+    {"key": "hr-service", "knowledgeBase": "员工服务", "title": "员工服务目录与联系渠道", "file": "06-员工服务目录与联系渠道.md", "versions": ["06-员工服务目录与联系渠道.md", "06-员工服务目录与联系渠道-v2.md"]},
+    {"key": "it-account", "knowledgeBase": "IT 支持", "title": "账号与密码安全", "file": "07-账号与密码安全.md"},
+    {"key": "it-vpn", "knowledgeBase": "IT 支持", "title": "VPN 远程接入", "file": "08-VPN远程接入.md", "versions": ["08-VPN远程接入.md", "08-VPN远程接入-v2.md"]},
+    {"key": "it-network", "knowledgeBase": "IT 支持", "title": "Wi-Fi 与办公网络", "file": "09-Wi-Fi与办公网络.md"},
+    {"key": "it-email", "knowledgeBase": "IT 支持", "title": "企业邮箱与日历", "file": "10-企业邮箱与日历.md"},
+    {"key": "it-software", "knowledgeBase": "IT 支持", "title": "软件安装与更新", "file": "11-软件安装与更新.md"},
+    {"key": "it-devices", "knowledgeBase": "IT 支持", "title": "设备与打印机排障", "file": "12-设备与打印机排障.md"}
+  ],
+  "replacement": {"documentKey": "hr-expense", "file": "03-费用报销-v2.md", "expectedCurrentVersion": 2, "changedFact": "提交期限从30个自然日变为20个自然日"},
+  "feedbackCorrection": {"documentKey": "it-vpn", "file": "08-VPN远程接入-v2.md", "change": "补充重连失败后的升级路径和敏感信息保护提醒"}
+}

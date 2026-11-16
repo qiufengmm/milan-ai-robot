@@ -3,6 +3,7 @@ package com.milanai.robot.domain.dos;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.TableField;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,6 +25,17 @@ public class AiCustomerServiceFileStorageDO {
     private Long id;
 
     private Long knowledgeBaseId;
+
+    private Long documentId;
+
+    private Integer versionNo;
+
+    private Long uploadedBy;
+
+    private String publishStatus;
+
+    @TableField(exist = false)
+    private String documentTitle;
 
     /** 文件 MD5 值，用于秒传和去重（唯一索引） */
     private String fileMd5;

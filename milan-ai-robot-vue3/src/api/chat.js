@@ -1,8 +1,8 @@
 import axios from "@/axios";
 
 // 新建对话
-export function newChat(message) {
-    return axios.post("/chat/new", {message})
+export function newChat(message, knowledgeBaseId) {
+    return axios.post("/chat/new", {message, knowledgeBaseId})
 }
 
 // 查询历史消息分页列表
@@ -21,6 +21,14 @@ export function deleteChat(uuid) {
 }
 
 // 重命名对话
-export function renameChat(id, summary) {
-    return axios.post("/chat/summary/rename", {id, summary})
+export function renameChat(uuid, summary) {
+    return axios.post("/chat/summary/rename", {uuid, summary})
+}
+
+export function getChat(uuid) {
+    return axios.get(`/chat/${encodeURIComponent(uuid)}`)
+}
+
+export function getAnswerSources(answerId) {
+    return axios.get(`/customer-service/chat/sources/${encodeURIComponent(answerId)}`)
 }

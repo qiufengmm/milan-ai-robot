@@ -1,7 +1,6 @@
 package com.milanai.robot.service;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.milanai.robot.domain.dos.KnowledgeBaseDO;
 import com.milanai.robot.domain.mapper.KnowledgeBaseMapper;
@@ -16,7 +15,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,12 +31,10 @@ class KnowledgeBaseServiceTest {
     }
 
     @Test
-    void omittedLibraryRequiresTheExistingDefaultRecord() {
-        KnowledgeBaseDO defaultLibrary = KnowledgeBaseDO.builder().id(1L).name("商城").build();
-        when(mapper.selectById(1L)).thenReturn(defaultLibrary);
-
-        assertThat(service.require(null)).isSameAs(defaultLibrary);
-        verify(mapper).selectById(1L);
+    void omittedLibraryIsRejectedBeforeAnyDefaultLookup() {
+        assertThatThrownBy(() -> service.require(null)).isInstanceOf(BizException.class)
+                .extracting("errorCode").isEqualTo(ResponseCodeEnum.PARAM_NOT_VALID.getErrorCode());
+        verifyNoInteractions(mapper);
     }
 
     @ParameterizedTest
@@ -66,12 +62,12 @@ class KnowledgeBaseServiceTest {
             return 1;
         });
 
-        assertThat(service.create(request("  售后知识库  ", "  键盘保修与退款  "))).isEqualTo(12L);
+        assertThat(service.create(request("  员工服务  ", "  入职考勤与账号申请  "))).isEqualTo(12L);
 
         ArgumentCaptor<KnowledgeBaseDO> saved = ArgumentCaptor.forClass(KnowledgeBaseDO.class);
         verify(mapper).insert(saved.capture());
-        assertThat(saved.getValue().getName()).isEqualTo("售后知识库");
-        assertThat(saved.getValue().getDescription()).isEqualTo("键盘保修与退款");
+        assertThat(saved.getValue().getName()).isEqualTo("员工服务");
+        assertThat(saved.getValue().getDescription()).isEqualTo("入职考勤与账号申请");
         assertThat(saved.getValue().getCreateTime()).isAfterOrEqualTo(before);
         assertThat(saved.getValue().getUpdateTime()).isAfterOrEqualTo(before);
     }
@@ -82,7 +78,7 @@ class KnowledgeBaseServiceTest {
             ((KnowledgeBaseDO) call.getArgument(0)).setId(12L);
             return 1;
         });
-        service.create(request("产品支持", null));
+        service.create(request("IT支持", null));
 
         ArgumentCaptor<KnowledgeBaseDO> saved = ArgumentCaptor.forClass(KnowledgeBaseDO.class);
         verify(mapper).insert(saved.capture());
@@ -116,14 +112,11 @@ class KnowledgeBaseServiceTest {
     }
 
     @Test
-    void updateWithOmittedIdUsesTheSameResolvedDefaultAsRequire() {
-        when(mapper.selectById(1L)).thenReturn(KnowledgeBaseDO.builder().id(1L).name("商城").build());
-
-        service.update(null, request("默认库", null));
-
-        ArgumentCaptor<KnowledgeBaseDO> saved = ArgumentCaptor.forClass(KnowledgeBaseDO.class);
-        verify(mapper).updateById(saved.capture());
-        assertThat(saved.getValue().getId()).isEqualTo(1L);
+    void updateWithOmittedIdCannotChangeTheDefaultLibrary() {
+        assertThatThrownBy(() -> service.update(null, request("默认库", null)))
+                .isInstanceOf(BizException.class)
+                .extracting("errorCode").isEqualTo(ResponseCodeEnum.PARAM_NOT_VALID.getErrorCode());
+        verifyNoInteractions(mapper);
     }
 
     @Test
@@ -136,18 +129,6 @@ class KnowledgeBaseServiceTest {
         verify(mapper, never()).updateById(any(KnowledgeBaseDO.class));
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void listRequestsStableIdOrdering() {
-        List<KnowledgeBaseDO> rows = List.of(KnowledgeBaseDO.builder().id(1L).build(), KnowledgeBaseDO.builder().id(7L).build());
-        when(mapper.selectList(any(LambdaQueryWrapper.class))).thenAnswer(call -> {
-            LambdaQueryWrapper<KnowledgeBaseDO> query = call.getArgument(0);
-            assertThat(query.getSqlSegment()).contains("ORDER BY id ASC");
-            return rows;
-        });
-
-        assertThat(service.list()).containsExactlyElementsOf(rows);
-    }
 
     private KnowledgeBaseReqVO request(String name, String description) {
         KnowledgeBaseReqVO request = new KnowledgeBaseReqVO();

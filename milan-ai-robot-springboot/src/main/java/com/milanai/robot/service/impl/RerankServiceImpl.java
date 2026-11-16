@@ -2,6 +2,7 @@ package com.milanai.robot.service.impl;
 
 import com.milanai.robot.config.RagProperties;
 import com.milanai.robot.service.RerankService;
+import com.milanai.robot.service.RerankUnavailableException;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
@@ -44,22 +45,24 @@ public class RerankServiceImpl implements RerankService {
     }
 
     @Override
-    public List<Document> rerank(String query, List<Document> candidates) {
+    public List<Document> rerank(String query, List<Document> candidates, double minRelevanceScore) {
         if (candidates == null || candidates.isEmpty()) {
             return List.of();
         }
-        RagProperties.Rerank config = properties.getRerank();
-        if (!config.isEnabled()) {
-            log.info("RAG rerank mode=disabled candidateCount={}", candidates.size());
-            return candidates;
-        }
         long started = System.nanoTime();
+        RagProperties.Rerank config = properties.getRerank();
+        if (!Double.isFinite(minRelevanceScore) || minRelevanceScore < 0.0 || minRelevanceScore > 1.0) {
+            log.warn("RAG rerank mode=unavailable reason=invalid-score-threshold candidateCount={}", candidates.size());
+            throw new RerankUnavailableException();
+        }
+        if (!config.isEnabled()) {
+            throw unavailable(candidates.size(), "disabled", null, started);
+        }
         try {
             String apiKey = hasText(config.getApiKey()) ? config.getApiKey() : openAiApiKey;
             HttpUrl endpoint = endpoint(config.getApiUrl());
             if (!hasText(apiKey) || endpoint == null || !hasText(query) || !hasText(config.getModel())) {
-                log.warn("RAG rerank mode=fallback reason=incomplete-configuration candidateCount={}", candidates.size());
-                return candidates;
+                throw unavailable(candidates.size(), "incomplete-configuration", null, started);
             }
             List<String> texts = candidates.stream().map(Document::getText).toList();
             Map<String, Object> payload = Map.of("model", config.getModel(),
@@ -73,20 +76,20 @@ public class RerankServiceImpl implements RerankService {
                     .writeTimeout(timeout, TimeUnit.SECONDS).build();
             try (Response response = boundedClient.newCall(request).execute()) {
                 if (!response.isSuccessful() || response.body() == null) {
-                    log.warn("RAG rerank mode=fallback reason=http-status status={} candidateCount={} elapsedMs={}",
-                            response.code(), candidates.size(), elapsedMs(started));
-                    return candidates;
+                    throw unavailable(candidates.size(), "http-status-" + response.code(),
+                            response.code(), started);
                 }
                 JsonNode results = json.readTree(response.body().string()).path("output").path("results");
-                List<Document> reordered = reorder(results, candidates);
-                log.info("RAG rerank mode=reranked candidateCount={} elapsedMs={}", reordered.size(), elapsedMs(started));
+                List<Document> reordered = reorder(results, candidates, minRelevanceScore);
+                log.info("RAG rerank mode=reranked candidateCount={} selectedCount={} minScore={} elapsedMs={}",
+                        candidates.size(), reordered.size(), minRelevanceScore, elapsedMs(started));
                 return reordered;
             }
+        } catch (RerankUnavailableException exception) {
+            throw exception;
         } catch (Exception exception) {
             // Exception text and response bodies can contain upstream secrets or user content.
-            log.warn("RAG rerank mode=fallback reason={} candidateCount={} elapsedMs={}",
-                    exception.getClass().getSimpleName(), candidates.size(), elapsedMs(started));
-            return candidates;
+            throw unavailable(candidates.size(), exception.getClass().getSimpleName(), null, started);
         }
     }
 
@@ -101,7 +104,7 @@ public class RerankServiceImpl implements RerankService {
                 .query(null).fragment(null).username("").password("").build();
     }
 
-    private List<Document> reorder(JsonNode results, List<Document> candidates) {
+    private List<Document> reorder(JsonNode results, List<Document> candidates, double minRelevanceScore) {
         if (!results.isArray() || results.isEmpty() || results.size() > candidates.size()) {
             throw new IllegalArgumentException("Invalid rerank result structure");
         }
@@ -116,15 +119,22 @@ public class RerankServiceImpl implements RerankService {
             if (position < 0 || position >= candidates.size() || !seen.add(position)) {
                 throw new IllegalArgumentException("Invalid or repeated rerank index");
             }
-            reordered.add(candidates.get(position));
-        }
-        // Some compatible providers return fewer results; retain the entire candidate pool for the advisor.
-        for (int i = 0; i < candidates.size(); i++) {
-            if (!seen.contains(i)) {
-                reordered.add(candidates.get(i));
+            JsonNode score = result.path("relevance_score");
+            if (!score.isNumber() || !Double.isFinite(score.doubleValue())
+                    || score.doubleValue() < 0.0 || score.doubleValue() > 1.0) {
+                throw new IllegalArgumentException("Invalid rerank relevance score");
+            }
+            if (score.doubleValue() >= minRelevanceScore) {
+                reordered.add(candidates.get(position));
             }
         }
         return List.copyOf(reordered);
+    }
+
+    private RerankUnavailableException unavailable(int candidateCount, String reason, Integer status, long started) {
+        log.warn("RAG rerank mode=unavailable reason={} status={} candidateCount={} elapsedMs={}",
+                reason, status, candidateCount, elapsedMs(started));
+        return new RerankUnavailableException();
     }
 
     private static boolean hasText(String value) {

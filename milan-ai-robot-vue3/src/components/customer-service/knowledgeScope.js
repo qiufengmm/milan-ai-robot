@@ -1,12 +1,23 @@
-export function knowledgeBaseId(value = 1) {
+import { getCsrfHeader } from '../../auth/csrfState.js'
+
+export function serverErrorDisplay(payload) {
+  const code = typeof payload?.code === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(payload.code)
+    ? payload.code
+    : null
+  return { message: '生成回答时遇到问题，请稍后重试。', code }
+}
+
+export function knowledgeBaseId(value) {
   const id = Number(value)
   if (!Number.isSafeInteger(id) || id <= 0) throw new Error('请选择有效的知识库')
   return id
 }
 
-export function captureUploadContext({ file, fileMd5, knowledgeBaseId: owner }) {
+export function captureUploadContext({ file, fileMd5, knowledgeBaseId: owner, documentId = null }) {
   if (!file || !fileMd5) throw new Error('请选择文件并等待 MD5 计算完成')
-  return Object.freeze({ file, fileMd5, knowledgeBaseId: knowledgeBaseId(owner) })
+  const versionOwner = documentId == null || documentId === '' ? null : Number(documentId)
+  if (versionOwner !== null && (!Number.isSafeInteger(versionOwner) || versionOwner <= 0)) throw new Error('替换资料标识无效')
+  return Object.freeze({ file, fileMd5, knowledgeBaseId: knowledgeBaseId(owner), documentId: versionOwner })
 }
 
 // Each reply owns its AbortController and identity. Cancellation also invalidates
@@ -38,41 +49,57 @@ export function createReplyScope() {
   }
 }
 
-export async function streamScopedReply({ fetchEventSource, token, message, chatId = null, onChunk }) {
+export async function streamScopedReply({ fetchEventSource, token, message, chatId, requestId, onMeta, onSources, onChunk, onServerError }) {
+  let completed = false
+  let serverFailed = false
   await fetchEventSource('/api/customer-service/chat/completion', {
     method: 'POST',
     openWhenHidden: true,
+    credentials: 'same-origin',
     signal: token.controller.signal,
-    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-    body: JSON.stringify({ message, chatId, knowledgeBaseId: token.knowledgeBaseId }),
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...getCsrfHeader() },
+    body: JSON.stringify({ message, chatId, requestId }),
     async onopen(response) {
       const contentType = response.headers.get('content-type') || ''
+      if (response.status === 401) {
+        window.location.hash = '/login?expired=1'
+        throw new Error('登录状态已失效')
+      }
       if (!response.ok || !contentType.toLowerCase().startsWith('text/event-stream')) {
         throw new Error(`客服连接失败（HTTP ${response.status}），请稍后重试`)
       }
     },
     onmessage(event) {
       if (!token.isCurrent()) return
-      if (event.event === 'close') {
-        token.controller.abort()
-        return
-      }
-      if (event.event && event.event !== 'message') return
-      if (event.data === '[DONE]') return
-      let chunk = event.data
+      let payload
       try {
-        const parsed = JSON.parse(event.data)
-        if (parsed && typeof parsed === 'object' && typeof parsed.v === 'string') chunk = parsed.v
+        payload = JSON.parse(event.data)
       } catch {
-        // The current Flux<String> endpoint sends plain text SSE data.
+        throw new Error('回答流格式无效')
       }
-      if (typeof chunk === 'string' && chunk) onChunk(chunk)
+      switch (event.event) {
+        case 'meta': onMeta?.(payload); break
+        case 'sources': onSources?.(Array.isArray(payload) ? payload : []); break
+        case 'delta': if (typeof payload.text === 'string' && payload.text) onChunk?.(payload.text); break
+        case 'done': completed = true; break
+        case 'error':
+          serverFailed = true
+          onServerError?.(payload)
+          throw new Error(payload.message || '回答生成失败')
+        default: break
+      }
+    },
+    onclose() {
+      if (!completed && !serverFailed) throw new Error('回答流提前结束，服务端未确认保存')
     },
     onerror(error) {
-      // Throwing disables fetch-event-source's automatic infinite retry loop.
+      // Throwing disables reconnection and prevents a duplicate model request.
       throw error
     },
   })
+  if (!completed && !serverFailed && token.isCurrent()) {
+    throw new Error('回答流提前结束，服务端未确认保存')
+  }
 }
 
 export function uploadAvailability(file) {

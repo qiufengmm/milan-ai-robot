@@ -1,6 +1,7 @@
 package com.milanai.robot.service.impl;
 
 import com.milanai.robot.config.RagProperties;
+import com.milanai.robot.service.RerankUnavailableException;
 import com.sun.net.httpserver.HttpServer;
 import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.AfterEach;
@@ -22,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RerankServiceImplTest {
     private final ObjectMapper json = JsonMapper.builder().build();
@@ -76,7 +78,7 @@ class RerankServiceImplTest {
         properties.getRerank().setApiKey("rerank-test-key");
         properties.getRerank().setTopN(1);
 
-        List<Document> result = service("fallback-test-key", "https://unused.example/compatible-api/v1").rerank("质量问题", candidates);
+        List<Document> result = service("fallback-test-key", "https://unused.example/compatible-api/v1").rerank("质量问题", candidates, 0.0);
 
         assertThat(result).containsExactly(candidates.get(1), candidates.get(0));
         assertThat(result.getFirst()).isSameAs(candidates.get(1));
@@ -92,7 +94,7 @@ class RerankServiceImplTest {
 
     @Test
     void defaultEndpointComesFromOpenAiOriginAndUsesFallbackKey() {
-        List<Document> result = service("fallback-test-key", origin() + "/compatible-api/v1/").rerank("退货", candidates);
+        List<Document> result = service("fallback-test-key", origin() + "/compatible-api/v1/").rerank("退货", candidates, 0.0);
 
         assertThat(result.getFirst()).isSameAs(candidates.get(1));
         assertThat(requestPath).hasValue("/api/v1/services/rerank/text-rerank/text-rerank");
@@ -100,11 +102,90 @@ class RerankServiceImplTest {
     }
 
     @Test
-    void partialValidResultsAppendUnrankedCandidatesInOriginalOrder() {
+    void zeroThresholdKeepsOnlyScoredCandidatesFromPartialResults() {
         response.set("{\"output\":{\"results\":[{\"index\":1,\"relevance_score\":0.9}]}}");
 
-        assertThat(service("test", origin()).rerank("退货", candidates))
+        assertThat(service("test", origin()).rerank("退货", candidates, 0.0))
+                .containsExactly(candidates.get(1));
+    }
+
+    @Test
+    void configuredRelevanceThresholdDropsLowScoringCandidates() {
+        response.set("{\"output\":{\"results\":[{\"index\":1,\"relevance_score\":0.91},"
+                + "{\"index\":0,\"relevance_score\":0.49}]}}");
+
+        assertThat(service("test", origin()).rerank("质量问题", candidates, 0.5))
+                .containsExactly(candidates.get(1));
+    }
+
+    @Test
+    void explicitThresholdDeterminesWhichScoredCandidatesAreReturned() {
+        properties.getRerank().setMinRelevanceScore(0.5);
+        response.set("{\"output\":{\"results\":[{\"index\":1,\"relevance_score\":0.91},"
+                + "{\"index\":0,\"relevance_score\":0.49}]}}");
+
+        assertThat(service("test", origin()).rerank("质量问题", candidates, 0.0))
                 .containsExactly(candidates.get(1), candidates.get(0));
+    }
+
+    @Test
+    void configuredThresholdDoesNotAppendCandidatesWithoutScores() {
+        response.set("{\"output\":{\"results\":[{\"index\":1,\"relevance_score\":0.91}]}}");
+
+        assertThat(service("test", origin()).rerank("质量问题", candidates, 0.5))
+                .containsExactly(candidates.get(1));
+    }
+
+    @Test
+    void configuredThresholdReportsUnavailableWhenRerankDoesNotReturnScores() {
+        response.set("{\"output\":{\"results\":[{\"index\":1}]}}");
+
+        assertThatThrownBy(() -> service("test", origin()).rerank("质量问题", candidates, 0.5))
+                .isInstanceOf(RerankUnavailableException.class);
+    }
+
+    @Test
+    void configuredThresholdReportsUnavailableWhenRerankEndpointFails() {
+        status.set(503);
+
+        assertThatThrownBy(() -> service("test", origin()).rerank("质量问题", candidates, 0.5))
+                .isInstanceOf(RerankUnavailableException.class);
+    }
+
+    @Test
+    void zeroThresholdStillRejectsRemoteFailureInsteadOfReturningUnscoredCandidates() {
+        status.set(503);
+
+        assertThatThrownBy(() -> service("test", origin()).rerank("质量问题", candidates, 0.0))
+                .isInstanceOf(RerankUnavailableException.class);
+    }
+
+    @Test
+    void zeroThresholdStillRejectsMissingScores() {
+        response.set("{\"output\":{\"results\":[{\"index\":1}]}}");
+
+        assertThatThrownBy(() -> service("test", origin()).rerank("质量问题", candidates, 0.0))
+                .isInstanceOf(RerankUnavailableException.class);
+    }
+
+    @Test
+    void configuredThresholdReturnsNoCandidatesWhenAllScoresAreBelowThreshold() {
+        response.set("{\"output\":{\"results\":[{\"index\":0,\"relevance_score\":0.2},"
+                + "{\"index\":1,\"relevance_score\":0.49}]}}");
+
+        assertThat(service("test", origin()).rerank("质量问题", candidates, 0.5)).isEmpty();
+    }
+
+    @Test
+    void configuredThresholdReportsUnavailableWhenRerankIsDisabledOrUnconfigured() {
+        properties.getRerank().setEnabled(false);
+        assertThatThrownBy(() -> service("test", origin()).rerank("质量问题", candidates, 0.5))
+                .isInstanceOf(RerankUnavailableException.class);
+
+        properties.getRerank().setEnabled(true);
+        assertThatThrownBy(() -> service("", origin()).rerank("质量问题", candidates, 0.5))
+                .isInstanceOf(RerankUnavailableException.class);
+        assertThat(calls).hasValue(0);
     }
 
     @ParameterizedTest
@@ -119,40 +200,45 @@ class RerankServiceImplTest {
             "{\"results\":[{\"index\":1}]}",
             "not-json"
     })
-    void invalidResponseFallsBackToOriginalCandidateOrder(String body) {
+    void invalidResponseFailsWithoutReturningUnscoredCandidates(String body) {
         response.set(body);
 
-        assertThat(service("test", origin()).rerank("退货", candidates)).containsExactlyElementsOf(candidates);
+        assertThatThrownBy(() -> service("test", origin()).rerank("退货", candidates, 0.5))
+                .isInstanceOf(RerankUnavailableException.class);
         assertThat(calls).hasValue(1);
     }
 
     @Test
-    void httpFailureFallsBackToOriginalCandidateOrder() {
+    void httpFailureRejectsUnscoredCandidates() {
         status.set(503);
         response.set("upstream unavailable");
 
-        assertThat(service("test", origin()).rerank("退货", candidates)).containsExactlyElementsOf(candidates);
+        assertThatThrownBy(() -> service("test", origin()).rerank("退货", candidates, 0.5))
+                .isInstanceOf(RerankUnavailableException.class);
         assertThat(calls).hasValue(1);
     }
 
     @Test
-    void boundedTimeoutFallsBackToOriginalCandidateOrder() {
+    void boundedTimeoutRejectsUnscoredCandidates() {
         properties.getRerank().setTimeoutSeconds(1);
         delayMillis.set(1800);
         long started = System.nanoTime();
 
-        assertThat(service("test", origin()).rerank("退货", candidates)).containsExactlyElementsOf(candidates);
+        assertThatThrownBy(() -> service("test", origin()).rerank("退货", candidates, 0.5))
+                .isInstanceOf(RerankUnavailableException.class);
         assertThat(calls).hasValue(1);
         assertThat((System.nanoTime() - started) / 1_000_000).isLessThan(1600);
     }
 
     @Test
-    void disabledMissingCredentialsAndEmptyCandidatesDoNotCallRemoteEndpoint() {
+    void zeroThresholdDoesNotBypassDisabledOrMissingCredentials() {
         properties.getRerank().setEnabled(false);
-        assertThat(service("test", origin()).rerank("退货", candidates)).containsExactlyElementsOf(candidates);
+        assertThatThrownBy(() -> service("test", origin()).rerank("退货", candidates, 0.0))
+                .isInstanceOf(RerankUnavailableException.class);
         properties.getRerank().setEnabled(true);
-        assertThat(service("", origin()).rerank("退货", candidates)).containsExactlyElementsOf(candidates);
-        assertThat(service("test", origin()).rerank("退货", List.of())).isEmpty();
+        assertThatThrownBy(() -> service("", origin()).rerank("退货", candidates, 0.0))
+                .isInstanceOf(RerankUnavailableException.class);
+        assertThat(service("test", origin()).rerank("退货", List.of(), 0.5)).isEmpty();
         assertThat(calls).hasValue(0);
     }
 

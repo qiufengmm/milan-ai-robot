@@ -1,9 +1,9 @@
 -- ============================================================================
---  米兰AI 机器人 · 数据库初始化脚本
+--  企业内部知识库 · 基础数据表
 -- ----------------------------------------------------------------------------
 --  适用版本：PostgreSQL 16+ / pgvector 0.7+
---  目标库名：robot（可在 application-dev.yml 的 datasource.url 中修改）
---  执行方式：psql -U postgres -d robot -f sql/schema.sql
+--  目标库名：milan_enterprise（完整初始化入口为 schema_enterprise.sql）
+--  执行方式：psql -U postgres -d milan_enterprise -f sql/schema_enterprise.sql
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -15,18 +15,18 @@ CREATE EXTENSION IF NOT EXISTS hstore;        -- Spring AI pgvector 元数据过
 
 
 -- ---------------------------------------------------------------------------
--- 1. 智能客服 · 知识库
+-- 1. 企业知识库
 CREATE TABLE IF NOT EXISTS t_knowledge_base (
     id BIGSERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, description VARCHAR(500),
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 INSERT INTO t_knowledge_base(id,name,description) VALUES
-    (1,'米兰数码商城','虚构电商演示知识库') ON CONFLICT(id) DO NOTHING;
+    (1,'员工服务','员工政策与人事服务知识库') ON CONFLICT(id) DO NOTHING;
 SELECT setval(pg_get_serial_sequence('t_knowledge_base','id'),
     greatest((SELECT coalesce(max(id),1) FROM t_knowledge_base),
         (SELECT last_value FROM t_knowledge_base_id_seq)), true);
 
--- 1.1 智能客服 · 知识库文件表
+-- 1.1 企业知识库资料表
 --    支持大文件分片上传 / 断点续传 / 秒传：
 --      file_md5        文件身份标识，唯一索引，秒传去重靠它
 --      total_chunks    总分片数
@@ -65,7 +65,7 @@ CREATE INDEX IF NOT EXISTS idx_file_storage_create_time
 
 
 -- ---------------------------------------------------------------------------
--- 1.1 智能客服 · 文件分片表
+-- 1.1 企业知识库文件分片表
 --     记录哪些分片已经上传成功，断点续传时把这些序号返回给前端跳过，
 --     合并完成后连同磁盘上的分片目录一起清理掉。
 -- ---------------------------------------------------------------------------
@@ -122,7 +122,6 @@ CREATE TABLE IF NOT EXISTS t_chat_message
     content           TEXT        NOT NULL,                  -- 消息正文
     role              VARCHAR(12),                           -- user / assistant / system
     create_time       TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    reasoning_content TEXT,                                  -- 模型思考过程（推理内容透出）
     CONSTRAINT t_chat_message_pkey PRIMARY KEY (id)
 );
 
@@ -135,7 +134,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_message_create_time ON t_chat_message (creat
 -- 4. 向量表（RAG 检索用）
 --    说明：Spring AI 的 PgVectorStore 在 initialize-schema 开启时会自动建表。
 --         若未自动创建，可执行下面的 SQL 手动建。
---    注意：embedding 维度必须与 application-dev.yml 中的
+--    注意：embedding 维度必须与 application.yml 中的
 --         spring.ai.vectorstore.pgvector.dimensions 完全一致（本项目为 1024）。
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS t_vector_store

@@ -5,24 +5,17 @@
     <!-- 侧边栏内容区域 -->
     <div class="p-0 h-full flex flex-col">
       <!-- Logo 与应用名称 -->
-      <div class="flex items-center justify-center p-4 cursor-pointer" @click="jumpToIndexPage">
+      <div class="flex items-center justify-center p-4 cursor-pointer" @click="startNewChat">
         <SvgIcon name="ai-robot-logo" customCss="w-8 h-8 text-gray-700 mr-3" />
-        <span class="text-2xl font-bold font-sans tracking-wide text-gray-800">米兰AI机器人</span>
+        <span class="text-2xl font-bold font-sans tracking-wide text-gray-800">企业知识库</span>
       </div>
 
       <!-- 开启新对话按钮 -->
-      <button @click="jumpToIndexPage"
+      <button @click="startNewChat"
         class="mx-auto mb-[34px] my-2 px-6 py-2 text-white rounded-xl transition-colors new-chat-btn w-fit cursor-pointer">
         <SvgIcon name="new-chat" customCss="w-6 h-6 mr-1.5 inline text-[#4d6bfe]" />
         开启新对话
       </button>
-      <!-- 其他工具入口 -->
-      <ul class="px-3 text-gray-600 mb-2">
-        <li class="flex items-center py-1 px-2 hover:bg-gray-100 rounded-lg cursor-pointer" @click="jumpToCustomerServiceChatPage">
-          <SvgIcon name="customer-service" customCss="w-5 h-5 mr-2 inline mb-0" />
-          <span>智能客服</span>
-        </li>
-      </ul>
       <!-- 分割线 -->
       <div class="h-1 border-b border-gray-200 mx-4"></div>
 
@@ -49,7 +42,7 @@
             <!-- 下拉菜单 -->
             <a-dropdown>
               <template #overlay>
-                <a-menu @click="handleMenuClick(historyChat.uuid, historyChat.id, historyChat.summary, $event)">
+                <a-menu @click="handleMenuClick(historyChat.uuid, historyChat.summary, $event)">
                   <a-menu-item key="rename">
                     <EditOutlined />
                     重命名
@@ -73,6 +66,11 @@
 
           </div>
         </div>
+      </div>
+      <div class="border-t border-gray-200 p-3 text-sm">
+        <div class="mb-2 truncate text-slate-600">{{ auth.user?.displayName }} · {{ auth.user?.role === 'ADMIN' ? '管理员' : '员工' }}</div>
+        <a-button v-if="auth.user?.role === 'ADMIN'" block size="small" class="mb-2" @click="router.push({ name: 'AdminAccessPage' })">账号与权限</a-button>
+        <a-button block size="small" @click="signOut">退出登录</a-button>
       </div>
     </div>
   </div>
@@ -122,16 +120,18 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount, toRaw } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
 import SvgIcon from '@/components/SvgIcon.vue'
 import { EditOutlined, EllipsisOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { useRouter, useRoute } from 'vue-router'
 // 导入获取历史对话列表的API
 import { findHistoryChatPageList, deleteChat, renameChat } from '@/api/chat'
 import { message } from 'ant-design-vue'
+import { useAuthStore } from '@/stores/authStore'
 
 const router = useRouter()
 const route = useRoute()
+const auth = useAuthStore()
 
 // 定义 props, 对外部暴露配置项
 const props = defineProps({
@@ -148,10 +148,6 @@ const historyChats = ref([])
 const toggleSidebar = () => {
   emit('toggle-sidebar')
 }
-// 跳转智能客服聊天页
-const jumpToCustomerServiceChatPage = () => {
-  router.push({ name: 'CustomerServiceChatPage'})
-}
 
 // 当前显示右侧栏按钮的聊天 ID
 const showButton = ref(null)
@@ -159,9 +155,9 @@ const showButton = ref(null)
 // 当前选中的聊天 ID
 const selectedChatId = ref(null)
 
-// 跳转到首页
-const jumpToIndexPage = () => {
-  router.push('/')
+// 开始员工知识问答
+const startNewChat = () => {
+  router.push({ name: 'CustomerServiceChatPage' })
 }
 
 // 左边栏滚动区域引用
@@ -169,7 +165,8 @@ const historyChatContainerRef = ref(null)
 
 onMounted(() => {
   // 查询历史对话
-  fetchHistoryChats()
+  fetchHistoryChats(true)
+  window.addEventListener('enterprise:history-refresh', refreshHistoryChats)
 
   // 检查当前路由是否有 chatId 参数
   const currentChatId = route.params.chatId
@@ -189,7 +186,11 @@ onBeforeUnmount(() => {
   if (historyChatContainerRef.value) {
     historyChatContainerRef.value.removeEventListener('scroll', handleScroll);
   }
+  window.removeEventListener('enterprise:history-refresh', refreshHistoryChats)
 })
+
+watch(() => route.params.chatId, value => { selectedChatId.value = value || null })
+const refreshHistoryChats = () => fetchHistoryChats(true)
 
 const handleScroll = () => {
   if (historyChatContainerRef.value) {
@@ -258,8 +259,13 @@ const hasMore = ref(true)
 const isLoadingMore = ref(false)
 
 // 获取历史对话列表
-const fetchHistoryChats = async () => {
-  findHistoryChatPageList(current.value, size.value).then(res => {
+const fetchHistoryChats = async (reset = false) => {
+  if (reset) {
+    current.value = 1
+    historyChats.value = []
+  }
+  const page = reset ? 1 : current.value
+  return findHistoryChatPageList(page, size.value).then(res => {
     // 无论成功失败，请求完成后都需要重置加载状态
     isLoadingMore.value = false
 
@@ -267,11 +273,11 @@ const fetchHistoryChats = async () => {
       const data = res.data.data
 
       // 判断是否还有下一页(总页数 > 当前页)
-      hasMore.value = res.data.pages > current.value
+      hasMore.value = res.data.pages > page
 
       if (data && data.length > 0) {
         // 将新数据添加到历史对话列表末尾
-        historyChats.value = [...historyChats.value, ...data]
+          historyChats.value = [...historyChats.value, ...data.filter(item => !historyChats.value.some(existing => existing.uuid === item.uuid))]
       }
     }
   }).catch((error) => {
@@ -285,7 +291,7 @@ const fetchHistoryChats = async () => {
 const jumpToChatPage = (chatId) => {
   // 更新被选中的对话 ID
   selectedChatId.value = chatId
-  router.push({ name: 'ChatPage', params: { chatId } })
+  router.push({ name: 'CustomerServiceChatPage', params: { chatId } })
 }
 
 // 删除对话确认框是否展示
@@ -298,12 +304,12 @@ const renameChatModelOpen = ref(false)
 
 // 表单对象
 const formState = reactive({
-  id: null, // 被重命名对话 ID
+  uuid: null, // 被重命名对话 UUID
   summary: '' // 被重命名对话摘要
 })
 
 // 处理菜单点击
-const handleMenuClick = (uuid, id, summary, e) => {
+const handleMenuClick = (uuid, summary, e) => {
   if (e.key === 'delete') { // 删除对话
     console.log('用户点击了删除对话：', uuid)
     // 展示确认框
@@ -316,7 +322,7 @@ const handleMenuClick = (uuid, id, summary, e) => {
     // 展示弹出框
     renameChatModelOpen.value = true
     // 保存当前被重命名对话的 ID
-    formState.id = id
+    formState.uuid = uuid
     // 保存摘要
     formState.summary = summary
 
@@ -329,8 +335,8 @@ const handleDeleteChatModelOk = () => {
   deleteChat(deleteChatUUID.value).then((res) => {
       if (res.data.success) {
         message.success('删除成功')
-        // 跳转首页
-        router.push({ name: 'Index'})
+        historyChats.value = historyChats.value.filter(chat => chat.uuid !== deleteChatUUID.value)
+        if (route.params.chatId === deleteChatUUID.value) router.push({ name: 'CustomerServiceChatPage' })
       } else {
         // 提示错误信息
         message.error(res.data.message)
@@ -351,12 +357,17 @@ const rules = {
   ]
 }
 
+const signOut = async () => {
+  await auth.signOut()
+  await router.replace({ name: 'Login' })
+}
+
 // 重命名对话弹出框确认事件
 const handleRenameChatModelOk = () => {
   formRef.value
     .validate()
     .then(() => { // 校验通过
-      renameChat(formState.id, formState.summary).then(res => {
+      renameChat(formState.uuid, formState.summary).then(res => {
           if (!res.data.success) {
             // 接口返回失败，提示错误消息
             message.error(res.data.message)
@@ -368,7 +379,7 @@ const handleRenameChatModelOk = () => {
           message.success('操作成功！')
           
           // 更新 historyChats 数组中对应 id 的对话摘要
-          const chatIndex = historyChats.value.findIndex(chat => chat.id === formState.id);
+          const chatIndex = historyChats.value.findIndex(chat => chat.uuid === formState.uuid);
           if (chatIndex !== -1) {
             historyChats.value[chatIndex].summary = formState.summary;
           }

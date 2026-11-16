@@ -23,13 +23,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import Sidebar from '@/components/Sidebar.vue'
-// 导入获取历史对话列表的API
-import { findHistoryChatPageList } from '@/api/chat'
-import { useRouter } from 'vue-router'
-
-const router = useRouter()
 
 // 定义props
 const props = defineProps({

@@ -17,8 +17,9 @@ import lombok.NoArgsConstructor;
 @Builder
 public class UpdateMarkdownFileReqVO {
 
-    @Builder.Default
-    private Long knowledgeBaseId = 1L;
+    @jakarta.validation.constraints.NotNull
+    @jakarta.validation.constraints.Positive
+    private Long knowledgeBaseId;
 
     @NotNull(message = "问答文件 ID 不能为空")
     private Long id;

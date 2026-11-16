@@ -1,161 +1,90 @@
 package com.milanai.robot.controller;
 
-import com.google.common.collect.Lists;
-import com.milanai.robot.advisor.CustomerServiceAdvisor;
 import com.milanai.robot.aspect.ApiOperationLog;
 import com.milanai.robot.model.vo.customerService.*;
 import com.milanai.robot.service.CustomerService;
-import com.milanai.robot.service.HybridRetrievalService;
-import com.milanai.robot.service.RerankService;
+import com.milanai.robot.service.EnterpriseConversationService;
+import com.milanai.robot.service.EnterpriseKnowledgeChatService;
+import com.milanai.robot.service.KnowledgeAccessService;
 import com.milanai.robot.service.KnowledgeBaseService;
-import com.milanai.robot.config.RagProperties;
-import tools.jackson.databind.ObjectMapper;
 import com.milanai.robot.utils.PageResponse;
 import com.milanai.robot.utils.Response;
-import jakarta.annotation.Resource;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.api.Advisor;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
-
-import org.springframework.beans.factory.annotation.Value;
+import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
-import org.springframework.validation.annotation.Validated;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
-import java.util.List;
-
-
-/**
- * @Description: AI 客服
- **/
 @RestController
 @RequestMapping("/customer-service")
-@Slf4j
 public class AiCustomerServiceController {
+    private final CustomerService customerService;
+    private final KnowledgeBaseService knowledgeBases;
+    private final KnowledgeAccessService access;
+    private final EnterpriseConversationService conversations;
+    private final EnterpriseKnowledgeChatService chat;
 
-    @Resource
-    private CustomerService customerService;
-    @Resource
-    private HybridRetrievalService retrievalService;
-    @Resource
-    private RerankService rerankService;
-    @Resource
-    private KnowledgeBaseService knowledgeBaseService;
-    @Resource
-    private RagProperties ragProperties;
-    @Resource
-    private ObjectMapper objectMapper;
+    public AiCustomerServiceController(CustomerService customerService, KnowledgeBaseService knowledgeBases,
+            KnowledgeAccessService access, EnterpriseConversationService conversations,
+            EnterpriseKnowledgeChatService chat) {
+        this.customerService = customerService;
+        this.knowledgeBases = knowledgeBases;
+        this.access = access;
+        this.conversations = conversations;
+        this.chat = chat;
+    }
 
-    @Value("${spring.ai.openai.base-url}")
-    private String baseUrl;
-    @Value("${spring.ai.openai.api-key}")
-    private String apiKey;
-    @Value("${customer-service.model}")
-    private String model;
-    @Value("${customer-service.temperature}")
-    private Double temperature;
-
-    /**
-     * 检查文件是否存在（秒传 / 断点续传）
-     *
-     * @param checkFileReqVO 入参
-     * @return 检查结果
-     */
     @PostMapping("/file/check")
     @ApiOperationLog(description = "检查文件是否存在")
-    public Response<CheckFileRspVO> checkFile(@RequestBody @Validated CheckFileReqVO checkFileReqVO) {
-        return customerService.checkFile(checkFileReqVO);
+    public Response<CheckFileRspVO> checkFile(@Valid @RequestBody CheckFileReqVO request) {
+        access.requireEdit(request.getKnowledgeBaseId());
+        return customerService.checkFile(request);
     }
 
-    /**
-     * 文件分片上传
-     * <p>
-     * 注意：这里刻意不加 @ApiOperationLog。
-     * 该切面会把入参序列化成 JSON 打日志，而入参里含 MultipartFile，
-     * Jackson 序列化时会抛 "MultipartFile resource [chunk] cannot be resolved to absolute file path"，
-     * 整个请求直接失败。
-     *
-     * @param uploadChunkReqVO 入参（表单提交）
-     * @return 上传结果
-     */
     @PostMapping(value = "/file/upload-chunk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Response<?> uploadChunk(@ModelAttribute UploadChunkReqVO uploadChunkReqVO) {
-        return customerService.uploadChunk(uploadChunkReqVO);
+    public Response<?> uploadChunk(@Valid @ModelAttribute UploadChunkReqVO request) {
+        access.requireEdit(request.getKnowledgeBaseId());
+        return customerService.uploadChunk(request);
     }
 
-    /**
-     * 文件分片合并
-     *
-     * @param mergeChunkReqVO 入参
-     * @return 合并结果
-     */
     @PostMapping("/file/merge-chunk")
     @ApiOperationLog(description = "文件分片合并")
-    public Response<?> mergeChunk(@RequestBody @Validated MergeChunkReqVO mergeChunkReqVO) {
-        return customerService.mergeChunk(mergeChunkReqVO);
+    public Response<?> mergeChunk(@Valid @RequestBody MergeChunkReqVO request) {
+        access.requireEdit(request.getKnowledgeBaseId());
+        return customerService.mergeChunk(request);
     }
 
     @PostMapping("/file/delete")
     @ApiOperationLog(description = "删除问答文件")
-    public Response<?> deleteMarkdownFile(@RequestBody @Validated DeleteMarkdownFileReqVO deleteMarkdownFileReqVO) {
-        return customerService.deleteMarkdownFile(deleteMarkdownFileReqVO);
+    public Response<?> deleteMarkdownFile(@Valid @RequestBody DeleteMarkdownFileReqVO request) {
+        access.requireEdit(request.getKnowledgeBaseId());
+        return customerService.deleteMarkdownFile(request);
     }
 
     @PostMapping("/file/list")
     @ApiOperationLog(description = "问答文件分页查询")
-    public PageResponse<FindMarkdownFilePageListRspVO> findMarkdownFilePageList(@RequestBody @Validated FindMarkdownFilePageListReqVO findMarkdownFilePageListReqVO) {
-        return customerService.findMarkdownFilePageList(findMarkdownFilePageListReqVO);
+    public PageResponse<FindMarkdownFilePageListRspVO> findMarkdownFilePageList(
+            @Valid @RequestBody FindMarkdownFilePageListReqVO request) {
+        access.requireRead(request.getKnowledgeBaseId());
+        return customerService.findMarkdownFilePageList(request);
     }
 
     @PostMapping("/file/update")
     @ApiOperationLog(description = "修改问答文件信息")
-    public Response<?> updateMarkdownFile(@RequestBody @Validated UpdateMarkdownFileReqVO updateMarkdownFileReqVO) {
-        return customerService.updateMarkdownFile(updateMarkdownFileReqVO);
+    public Response<?> updateMarkdownFile(@Valid @RequestBody UpdateMarkdownFileReqVO request) {
+        access.requireEdit(request.getKnowledgeBaseId());
+        return customerService.updateMarkdownFile(request);
     }
 
-    /**
-     * 流式对话
-     *
-     * @return SSE 流
-     */
     @PostMapping(value = "/chat/completion", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @ApiOperationLog(description = "AI 智能客服对话")
-    public Flux<String> chat(@RequestBody @Validated AiCustomerServiceChatReqVO aiChatReqVO) {
-        var library = knowledgeBaseService.require(aiChatReqVO.getKnowledgeBaseId());
-        // 用户消息
-        String userMessage = aiChatReqVO.getMessage();
-
-        // 构建 ChatModel
-        ChatModel chatModel = OpenAiChatModel.builder()
-                .options(OpenAiChatOptions.builder()
-                        .baseUrl(baseUrl)
-                        .apiKey(apiKey)
-                        .build())
-                .build();
-
-        // 动态设置调用的模型名称、温度值
-        ChatClient.ChatClientRequestSpec chatClientRequestSpec = ChatClient.create(chatModel)
-                .prompt()
-                .options(OpenAiChatOptions.builder()
-                        .model(model)
-                        .temperature(temperature))
-                .user(userMessage); // 用户提示词
-
-        // Advisor 集合
-        List<Advisor> advisors = Lists.newArrayList();
-        advisors.add(new CustomerServiceAdvisor(retrievalService, rerankService, ragProperties, library, objectMapper)); // 当前知识库内混合检索、重排、增强提示词
-
-        // 应用 Advisor 集合
-        chatClientRequestSpec.advisors(advisors);
-
-        // 流式输出
-        return chatClientRequestSpec
-                .stream()
-                .content();
+    public Flux<ServerSentEvent<String>> chat(@Valid @RequestBody EnterpriseChatCompletionReqVO request) {
+        var turn = conversations.beginRequest(request.getChatId(), request.getRequestId(), request.getMessage());
+        try {
+            var library = knowledgeBases.require(turn.chat().getKnowledgeBaseId());
+            return chat.generate(turn, library);
+        } catch (RuntimeException exception) {
+            conversations.fail(turn.assistantMessageId(), "", "REQUEST_SETUP_FAILED");
+            throw exception;
+        }
     }
-
 }

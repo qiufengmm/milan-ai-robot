@@ -1,10 +1,20 @@
 import axios from "axios";
 import { message } from "ant-design-vue";
+import { getCsrfHeader } from '@/auth/csrfState'
 
 // 创建 Axios 实例
 const instance = axios.create({
     baseURL: "/api", // 你的 API 基础 URL
     timeout: 7000, // 请求超时时间
+    withCredentials: true,
+})
+
+instance.interceptors.request.use((config) => {
+    const method = (config.method || 'get').toLowerCase()
+    if (['post', 'put', 'patch', 'delete'].includes(method)) {
+        config.headers = { ...config.headers, ...getCsrfHeader() }
+    }
+    return config
 })
 
 /**
@@ -47,6 +57,11 @@ instance.interceptors.response.use(
     },
     // HTTP 状态码非 2xx，或网络异常、超时
     (error) => {
+        const url = String(error.config?.url || '')
+        if (error.response?.status === 401 && !url.startsWith('/auth/')) {
+            window.dispatchEvent(new CustomEvent('enterprise:unauthorized'))
+            if (window.location.hash !== '#/login') window.location.hash = '/login?expired=1'
+        }
         if (!error.config?.silent) {
             let tip = '网络异常，请稍后重试'
 

@@ -17,8 +17,6 @@ public enum ResponseCodeEnum implements BaseExceptionInterface {
 
 
     // ----------- 业务异常状态码 -----------
-    CHAT_NOT_EXISTED("20000", "此对话不存在"),
-    UPLOAD_FILE_CANT_EMPTY("20001", "上传文件不能为空"),
     UNSUPPORTED_FILE_TYPE("20002", "不支持的文件格式，仅支持 Markdown（.md / .markdown）、PDF（.pdf）、Word（.doc / .docx）、TXT（.txt）"),
     UPLOAD_FILE_FAILED("20003", "文件上传失败"),
     MARKDOWN_FILE_NOT_FOUND("20004", "问答文件不存在"),
@@ -28,6 +26,7 @@ public enum ResponseCodeEnum implements BaseExceptionInterface {
     KNOWLEDGE_BASE_NOT_FOUND("20008", "知识库不存在"),
     FILE_INTEGRITY_FAILED("20009", "文件大小或 MD5 校验失败，请重新上传"),
     UPLOAD_CONFLICT("20010", "上传任务的文件信息不一致"),
+    UPLOAD_SIZE_EXCEEDED("20011", "分片累计大小超过声明的文件大小"),
     ;
 
     // 异常码

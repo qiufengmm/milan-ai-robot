@@ -37,6 +37,8 @@ public class CustomerServiceImpl implements CustomerService {
     @Resource private VectorStore vectorStore;
     @Resource private KnowledgeBaseService knowledgeBaseService;
     @Resource private RagIndexService ragIndexService;
+    @Resource private KnowledgeDocumentService documentService;
+    @Resource private KnowledgeAccessService knowledgeAccess;
 
     @Override
     public Response<CheckFileRspVO> checkFile(CheckFileReqVO request) {
@@ -58,11 +60,19 @@ public class CustomerServiceImpl implements CustomerService {
         String md5 = validMd5(request.getFileMd5());
         validateUpload(request);
         long kb = knowledgeBaseService.require(request.getKnowledgeBaseId()).getId();
+        if (request.getDocumentId() != null) {
+            documentService.requireSameLibrary(request.getDocumentId(), kb);
+        }
         var seed = AiCustomerServiceFileStorageDO.builder().knowledgeBaseId(kb).fileMd5(md5)
                 .fileName(request.getFileName()).fileSize(request.getFileSize()).totalChunks(request.getTotalChunks()).build();
-        aiCustomerServiceFileStorageMapper.insertUploadIfAbsent(seed);
+        int inserted = aiCustomerServiceFileStorageMapper.insertUploadIfAbsent(seed);
         AiCustomerServiceFileStorageDO owner = aiCustomerServiceFileStorageMapper.lockUpload(md5,kb);
         if (owner == null) throw new BizException(ResponseCodeEnum.UPLOAD_FILE_FAILED);
+        if (inserted == 1) {
+            documentService.attachDraftToUpload(owner.getId(), kb, request.getFileName(), request.getDocumentId(),
+                    knowledgeAccess.currentUser().id());
+            owner = aiCustomerServiceFileStorageMapper.lockUpload(md5, kb);
+        }
         if (!Objects.equals(owner.getFileSize(),request.getFileSize()) || !Objects.equals(owner.getTotalChunks(),request.getTotalChunks()))
             throw new BizException(ResponseCodeEnum.UPLOAD_CONFLICT);
         if (owner.getStatus() != AiCustomerServiceFileStatusEnum.UPLOADING.getCode()) {
@@ -84,6 +94,16 @@ public class CustomerServiceImpl implements CustomerService {
                 }
                 return Response.success(owner.getId());
             }
+            long storedBytes = 0;
+            for (FileChunkInfoDO part : prior) {
+                if (!regular(part.getChunkPath())) continue;
+                long partBytes = Files.size(safeChunk(part.getChunkPath()));
+                if (partBytes > owner.getFileSize() - storedBytes)
+                    throw new BizException(ResponseCodeEnum.UPLOAD_SIZE_EXCEEDED);
+                storedBytes += partBytes;
+            }
+            if (request.getChunk().getSize() > owner.getFileSize() - storedBytes)
+                throw new BizException(ResponseCodeEnum.UPLOAD_SIZE_EXCEEDED);
             request.getChunk().transferTo(path);
             afterCompletion(() -> {}, () -> deleteOne(path));
             FileChunkInfoDO part = FileChunkInfoDO.builder().knowledgeBaseId(kb).fileMd5(md5)
@@ -167,6 +187,7 @@ public class CustomerServiceImpl implements CustomerService {
     public Response<?> deleteMarkdownFile(DeleteMarkdownFileReqVO request) {
         long kb = knowledgeBaseService.require(request.getKnowledgeBaseId()).getId();
         AiCustomerServiceFileStorageDO owner = ownedFile(request.getId(),kb,true);
+        documentService.assertDraftCanBeDeleted(owner);
         boolean processing = owner.getStatus()==AiCustomerServiceFileStatusEnum.PENDING.getCode()
                 || owner.getStatus()==AiCustomerServiceFileStatusEnum.VECTORIZING.getCode();
         if (processing && !Boolean.TRUE.equals(request.getForce())) throw new BizException(ResponseCodeEnum.MARKDOWN_FILE_CANT_DELETE);
@@ -186,10 +207,11 @@ public class CustomerServiceImpl implements CustomerService {
     public PageResponse<FindMarkdownFilePageListRspVO> findMarkdownFilePageList(FindMarkdownFilePageListReqVO request) {
         long kb=knowledgeBaseService.require(request.getKnowledgeBaseId()).getId();
         var end=request.getEndDate()==null ? null : request.getEndDate().plusDays(1);
-        var page=aiCustomerServiceFileStorageMapper.selectPageList(request.getCurrent(),request.getSize(),
-                request.getFileName(),request.getStartDate(),end,kb);
+        var page = aiCustomerServiceFileStorageMapper.selectPageList(request.getCurrent(),request.getSize(),
+                request.getFileName(),request.getStartDate(),end,kb,knowledgeAccess.canEdit(kb));
         var rows=page.getRecords().stream().map(f -> FindMarkdownFilePageListRspVO.builder().id(f.getId())
-                .knowledgeBaseId(f.getKnowledgeBaseId()).fileName(f.getFileName()).fileSize(DataSizeUtil.format(Objects.requireNonNullElse(f.getFileSize(),0L)))
+                .knowledgeBaseId(f.getKnowledgeBaseId()).documentId(f.getDocumentId()).versionNo(f.getVersionNo())
+                .publishStatus(f.getPublishStatus()).fileName(f.getFileName()).fileSize(DataSizeUtil.format(Objects.requireNonNullElse(f.getFileSize(),0L)))
                 .status(f.getStatus()).indexStatus(ragIndexService.status(f)).createTime(f.getCreateTime()).updateTime(f.getUpdateTime()).remark(f.getRemark()).build()).toList();
         return PageResponse.success(page,rows);
     }

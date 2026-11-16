@@ -1,6 +1,5 @@
 package com.milanai.robot.service;
 
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.milanai.robot.domain.dos.KnowledgeBaseDO;
 import com.milanai.robot.domain.mapper.KnowledgeBaseMapper;
 import com.milanai.robot.enums.ResponseCodeEnum;
@@ -8,7 +7,6 @@ import com.milanai.robot.exception.BizException;
 import com.milanai.robot.model.vo.customerService.KnowledgeBaseReqVO;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 public class KnowledgeBaseService {
@@ -16,8 +14,7 @@ public class KnowledgeBaseService {
     public KnowledgeBaseService(KnowledgeBaseMapper mapper) { this.mapper = mapper; }
 
     public static long resolveId(Long id) {
-        if (id == null) return 1L;
-        if (id <= 0) throw new BizException(ResponseCodeEnum.PARAM_NOT_VALID);
+        if (id == null || id <= 0) throw new BizException(ResponseCodeEnum.PARAM_NOT_VALID);
         return id;
     }
 
@@ -27,9 +24,6 @@ public class KnowledgeBaseService {
         return result;
     }
 
-    public List<KnowledgeBaseDO> list() {
-        return mapper.selectList(Wrappers.<KnowledgeBaseDO>lambdaQuery().orderByAsc(KnowledgeBaseDO::getId));
-    }
 
     public long create(KnowledgeBaseReqVO request) {
         validate(request);

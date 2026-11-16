@@ -24,9 +24,13 @@ public class ChatMessageDO {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String chatUuid;
-    private String reasoningContent;
     private String content;
     private String role;
+    private String requestId;
+    private String status;
+    private String retrievalQuery;
+    private String sourcesJson;
+    private String errorCode;
     private LocalDateTime createTime;
 }
 

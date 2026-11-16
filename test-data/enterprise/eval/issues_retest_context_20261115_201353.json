@@ -1,0 +1,522 @@
+{
+  "startedAt": "2026-11-15T20:13:53.742145+08:00",
+  "runType": "targeted_issues_retest",
+  "requestedCaseIds": [
+    "CL01",
+    "SAFE05",
+    "SAFE01",
+    "MT01",
+    "MT02",
+    "MT03",
+    "MT08",
+    "VER03"
+  ],
+  "expectedChatTurns": 12,
+  "applicationCodeChanged": false,
+  "model": "qwen3.8-flash",
+  "temperature": 0.0,
+  "resultsFile": "results_issues_retest_20261115_201353.json",
+  "sourceLog": "milan-ai-robot-springboot\\target\\enterprise-followup-20261115-192653.log",
+  "previousRunRewriteWarnings": {
+    "smoke": 2,
+    "full60": 3,
+    "combined": 5,
+    "lines": [
+      "2026-11-15 19:27:31.920 [boundedElastic-1] WARN  com.milanai.robot.service.EnterpriseKnowledgeChatService - Enterprise question rewrite failed requestId=905f6ce7-52aa-4fa3-aa36-f309c72b5ac0 fallback=deterministic causes=UnexpectedEndOfInputException",
+      "2026-11-15 19:27:55.074 [boundedElastic-1] WARN  com.milanai.robot.service.EnterpriseKnowledgeChatService - Enterprise question rewrite failed requestId=a6ed0af0-aed3-47c9-aed7-8aa9246f3d88 fallback=deterministic causes=IllegalArgumentException",
+      "2026-11-15 19:32:47.902 [boundedElastic-3] WARN  com.milanai.robot.service.EnterpriseKnowledgeChatService - Enterprise question rewrite failed requestId=fbd619ba-70e4-4827-ba77-e0ed8f44cb24 fallback=deterministic causes=IllegalArgumentException",
+      "2026-11-15 19:33:06.418 [boundedElastic-3] WARN  com.milanai.robot.service.EnterpriseKnowledgeChatService - Enterprise question rewrite failed requestId=ba8b1fc8-2fdd-4b3f-a152-8c21a53f9e67 fallback=deterministic causes=IllegalArgumentException",
+      "2026-11-15 19:34:31.116 [boundedElastic-3] WARN  com.milanai.robot.service.EnterpriseKnowledgeChatService - Enterprise question rewrite failed requestId=b7a0dbfd-270b-4786-9660-e9c3be930dc8 fallback=deterministic causes=IllegalArgumentException"
+    ]
+  },
+  "classHashes": {
+    "QuestionRewriteService": "da4ebeff288639edeea6bfb5401ded4aec28541e2e62fa1240ed76f460e3fef7",
+    "EnterpriseKnowledgeChatService": "1f5492b6dfff360f3bb562a225f452aa970617f08ec7dfe71bc39a309eae1d8a"
+  },
+  "publicationStateBefore": [
+    {
+      "document_id": 1,
+      "current_file_id": 1,
+      "document_update_time": "2026-11-15T12:39:32.641928",
+      "file_id": 1,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:32.640885"
+    },
+    {
+      "document_id": 2,
+      "current_file_id": 2,
+      "document_update_time": "2026-11-15T12:39:37.880152",
+      "file_id": 2,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:37.878477"
+    },
+    {
+      "document_id": 3,
+      "current_file_id": 4,
+      "document_update_time": "2026-11-15T06:43:28.322949",
+      "file_id": 3,
+      "version_no": 1,
+      "publish_status": "ARCHIVED",
+      "file_update_time": "2026-11-15T06:41:48.402788"
+    },
+    {
+      "document_id": 3,
+      "current_file_id": 4,
+      "document_update_time": "2026-11-15T06:43:28.322949",
+      "file_id": 4,
+      "version_no": 2,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T06:41:48.402788"
+    },
+    {
+      "document_id": 4,
+      "current_file_id": 5,
+      "document_update_time": "2026-11-15T12:39:53.539495",
+      "file_id": 5,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:53.538648"
+    },
+    {
+      "document_id": 5,
+      "current_file_id": 6,
+      "document_update_time": "2026-11-15T12:39:58.788188",
+      "file_id": 6,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:58.78506"
+    },
+    {
+      "document_id": 6,
+      "current_file_id": 15,
+      "document_update_time": "2026-11-15T14:38:24.142497",
+      "file_id": 7,
+      "version_no": 1,
+      "publish_status": "ARCHIVED",
+      "file_update_time": "2026-11-15T14:38:24.140854"
+    },
+    {
+      "document_id": 6,
+      "current_file_id": 15,
+      "document_update_time": "2026-11-15T14:38:24.142497",
+      "file_id": 15,
+      "version_no": 2,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T14:38:24.14139"
+    },
+    {
+      "document_id": 7,
+      "current_file_id": 8,
+      "document_update_time": "2026-11-15T12:40:09.146666",
+      "file_id": 8,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:09.146115"
+    },
+    {
+      "document_id": 8,
+      "current_file_id": 14,
+      "document_update_time": "2026-11-15T13:55:14.005538",
+      "file_id": 9,
+      "version_no": 1,
+      "publish_status": "ARCHIVED",
+      "file_update_time": "2026-11-15T13:55:14.004524"
+    },
+    {
+      "document_id": 8,
+      "current_file_id": 14,
+      "document_update_time": "2026-11-15T13:55:14.005538",
+      "file_id": 14,
+      "version_no": 2,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T13:55:14.005026"
+    },
+    {
+      "document_id": 9,
+      "current_file_id": 10,
+      "document_update_time": "2026-11-15T12:40:19.445298",
+      "file_id": 10,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:19.44479"
+    },
+    {
+      "document_id": 10,
+      "current_file_id": 11,
+      "document_update_time": "2026-11-15T12:40:24.620765",
+      "file_id": 11,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:24.618846"
+    },
+    {
+      "document_id": 11,
+      "current_file_id": 12,
+      "document_update_time": "2026-11-15T12:40:29.817828",
+      "file_id": 12,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:29.816776"
+    },
+    {
+      "document_id": 12,
+      "current_file_id": 13,
+      "document_update_time": "2026-11-15T12:40:35.007442",
+      "file_id": 13,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:35.003786"
+    }
+  ],
+  "knowledgeBaseIds": {
+    "员工服务": 1,
+    "IT 支持": 2
+  },
+  "ver03PublicationStateDuring": [
+    {
+      "document_id": 1,
+      "current_file_id": 1,
+      "document_update_time": "2026-11-15T12:39:32.641928",
+      "file_id": 1,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:32.640885"
+    },
+    {
+      "document_id": 2,
+      "current_file_id": 2,
+      "document_update_time": "2026-11-15T12:39:37.880152",
+      "file_id": 2,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:37.878477"
+    },
+    {
+      "document_id": 3,
+      "current_file_id": 3,
+      "document_update_time": "2026-11-15T06:43:28.322949",
+      "file_id": 3,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T06:41:48.402788"
+    },
+    {
+      "document_id": 3,
+      "current_file_id": 3,
+      "document_update_time": "2026-11-15T06:43:28.322949",
+      "file_id": 4,
+      "version_no": 2,
+      "publish_status": "DRAFT",
+      "file_update_time": "2026-11-15T06:41:48.402788"
+    },
+    {
+      "document_id": 4,
+      "current_file_id": 5,
+      "document_update_time": "2026-11-15T12:39:53.539495",
+      "file_id": 5,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:53.538648"
+    },
+    {
+      "document_id": 5,
+      "current_file_id": 6,
+      "document_update_time": "2026-11-15T12:39:58.788188",
+      "file_id": 6,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:58.78506"
+    },
+    {
+      "document_id": 6,
+      "current_file_id": 15,
+      "document_update_time": "2026-11-15T14:38:24.142497",
+      "file_id": 7,
+      "version_no": 1,
+      "publish_status": "ARCHIVED",
+      "file_update_time": "2026-11-15T14:38:24.140854"
+    },
+    {
+      "document_id": 6,
+      "current_file_id": 15,
+      "document_update_time": "2026-11-15T14:38:24.142497",
+      "file_id": 15,
+      "version_no": 2,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T14:38:24.14139"
+    },
+    {
+      "document_id": 7,
+      "current_file_id": 8,
+      "document_update_time": "2026-11-15T12:40:09.146666",
+      "file_id": 8,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:09.146115"
+    },
+    {
+      "document_id": 8,
+      "current_file_id": 14,
+      "document_update_time": "2026-11-15T13:55:14.005538",
+      "file_id": 9,
+      "version_no": 1,
+      "publish_status": "ARCHIVED",
+      "file_update_time": "2026-11-15T13:55:14.004524"
+    },
+    {
+      "document_id": 8,
+      "current_file_id": 14,
+      "document_update_time": "2026-11-15T13:55:14.005538",
+      "file_id": 14,
+      "version_no": 2,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T13:55:14.005026"
+    },
+    {
+      "document_id": 9,
+      "current_file_id": 10,
+      "document_update_time": "2026-11-15T12:40:19.445298",
+      "file_id": 10,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:19.44479"
+    },
+    {
+      "document_id": 10,
+      "current_file_id": 11,
+      "document_update_time": "2026-11-15T12:40:24.620765",
+      "file_id": 11,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:24.618846"
+    },
+    {
+      "document_id": 11,
+      "current_file_id": 12,
+      "document_update_time": "2026-11-15T12:40:29.817828",
+      "file_id": 12,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:29.816776"
+    },
+    {
+      "document_id": 12,
+      "current_file_id": 13,
+      "document_update_time": "2026-11-15T12:40:35.007442",
+      "file_id": 13,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:35.003786"
+    }
+  ],
+  "ver03FixtureRestored": true,
+  "finishedAt": "2026-11-15T20:15:16.148126+08:00",
+  "rewriteWarningCount": 4,
+  "rewriteWarnings": [
+    "2026-11-15 20:14:10.335 [boundedElastic-4] WARN  com.milanai.robot.service.EnterpriseKnowledgeChatService - Enterprise question rewrite failed requestId=a1aa9a6d-fd1e-43c4-899b-d02bc87934d9 fallback=deterministic causes=IllegalArgumentException",
+    "2026-11-15 20:14:28.783 [boundedElastic-4] WARN  com.milanai.robot.service.EnterpriseKnowledgeChatService - Enterprise question rewrite failed requestId=d5f6d5a7-3f0c-4044-b45c-6d76264f5782 fallback=deterministic causes=IllegalArgumentException",
+    "2026-11-15 20:14:46.810 [boundedElastic-4] WARN  com.milanai.robot.service.EnterpriseKnowledgeChatService - Enterprise question rewrite failed requestId=8b88b6ce-93f4-4723-816c-fadec3177d65 fallback=deterministic causes=IllegalArgumentException",
+    "2026-11-15 20:15:00.518 [boundedElastic-4] WARN  com.milanai.robot.service.EnterpriseKnowledgeChatService - Enterprise question rewrite failed requestId=67a7433d-38ef-4bd4-ad03-51fa34a939ad fallback=deterministic causes=IllegalArgumentException"
+  ],
+  "publicationStateAfter": [
+    {
+      "document_id": 1,
+      "current_file_id": 1,
+      "document_update_time": "2026-11-15T12:39:32.641928",
+      "file_id": 1,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:32.640885"
+    },
+    {
+      "document_id": 2,
+      "current_file_id": 2,
+      "document_update_time": "2026-11-15T12:39:37.880152",
+      "file_id": 2,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:37.878477"
+    },
+    {
+      "document_id": 3,
+      "current_file_id": 4,
+      "document_update_time": "2026-11-15T06:43:28.322949",
+      "file_id": 3,
+      "version_no": 1,
+      "publish_status": "ARCHIVED",
+      "file_update_time": "2026-11-15T06:41:48.402788"
+    },
+    {
+      "document_id": 3,
+      "current_file_id": 4,
+      "document_update_time": "2026-11-15T06:43:28.322949",
+      "file_id": 4,
+      "version_no": 2,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T06:41:48.402788"
+    },
+    {
+      "document_id": 4,
+      "current_file_id": 5,
+      "document_update_time": "2026-11-15T12:39:53.539495",
+      "file_id": 5,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:53.538648"
+    },
+    {
+      "document_id": 5,
+      "current_file_id": 6,
+      "document_update_time": "2026-11-15T12:39:58.788188",
+      "file_id": 6,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:39:58.78506"
+    },
+    {
+      "document_id": 6,
+      "current_file_id": 15,
+      "document_update_time": "2026-11-15T14:38:24.142497",
+      "file_id": 7,
+      "version_no": 1,
+      "publish_status": "ARCHIVED",
+      "file_update_time": "2026-11-15T14:38:24.140854"
+    },
+    {
+      "document_id": 6,
+      "current_file_id": 15,
+      "document_update_time": "2026-11-15T14:38:24.142497",
+      "file_id": 15,
+      "version_no": 2,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T14:38:24.14139"
+    },
+    {
+      "document_id": 7,
+      "current_file_id": 8,
+      "document_update_time": "2026-11-15T12:40:09.146666",
+      "file_id": 8,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:09.146115"
+    },
+    {
+      "document_id": 8,
+      "current_file_id": 14,
+      "document_update_time": "2026-11-15T13:55:14.005538",
+      "file_id": 9,
+      "version_no": 1,
+      "publish_status": "ARCHIVED",
+      "file_update_time": "2026-11-15T13:55:14.004524"
+    },
+    {
+      "document_id": 8,
+      "current_file_id": 14,
+      "document_update_time": "2026-11-15T13:55:14.005538",
+      "file_id": 14,
+      "version_no": 2,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T13:55:14.005026"
+    },
+    {
+      "document_id": 9,
+      "current_file_id": 10,
+      "document_update_time": "2026-11-15T12:40:19.445298",
+      "file_id": 10,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:19.44479"
+    },
+    {
+      "document_id": 10,
+      "current_file_id": 11,
+      "document_update_time": "2026-11-15T12:40:24.620765",
+      "file_id": 11,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:24.618846"
+    },
+    {
+      "document_id": 11,
+      "current_file_id": 12,
+      "document_update_time": "2026-11-15T12:40:29.817828",
+      "file_id": 12,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:29.816776"
+    },
+    {
+      "document_id": 12,
+      "current_file_id": 13,
+      "document_update_time": "2026-11-15T12:40:35.007442",
+      "file_id": 13,
+      "version_no": 1,
+      "publish_status": "PUBLISHED",
+      "file_update_time": "2026-11-15T12:40:35.003786"
+    }
+  ],
+  "publicationStateRestored": true,
+  "runtimeErrors": [],
+  "completedCases": 8,
+  "actualChatTurns": 12,
+  "manualGrades": {
+    "retrievalCorrect": 7,
+    "answerCorrect": 6,
+    "evidenceSupported": 5,
+    "caseDenominator": 8
+  },
+  "gradingScope": "Only this eight-case targeted retest; full 60-case scores unchanged. Extra factual statements are graded against this turn sources separately from core answer correctness.",
+  "additionalRetrievalObservation": "VER03 contains version digits v2/v1 but not an expense amount; numeric expense expansion still appended approval terms. Retrieval and answer remained correct in this case.",
+  "retrievalStageLogs": [
+    "2026-11-15 20:13:54.429 [rag-retrieval-2] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=1 count=1 elapsedMs=18",
+    "2026-11-15 20:13:54.628 [rag-retrieval-1] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=1 count=10 elapsedMs=217",
+    "2026-11-15 20:13:54.629 [boundedElastic-4] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=1 vectorCount=10 keywordCount=1 fusedCount=10 fusionMs=0 elapsedMs=228",
+    "2026-11-15 20:13:54.894 [boundedElastic-4] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=2 minScore=0.5 elapsedMs=265",
+    "2026-11-15 20:14:00.585 [rag-retrieval-4] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=2 count=10 elapsedMs=9",
+    "2026-11-15 20:14:00.667 [rag-retrieval-3] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=2 count=10 elapsedMs=92",
+    "2026-11-15 20:14:00.668 [boundedElastic-6] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=2 vectorCount=10 keywordCount=10 fusedCount=10 fusionMs=0 elapsedMs=93",
+    "2026-11-15 20:14:00.822 [boundedElastic-6] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=0 minScore=0.5 elapsedMs=153",
+    "2026-11-15 20:14:01.086 [rag-retrieval-1] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=1 count=10 elapsedMs=9",
+    "2026-11-15 20:14:01.160 [rag-retrieval-2] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=1 count=10 elapsedMs=83",
+    "2026-11-15 20:14:01.160 [boundedElastic-6] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=1 vectorCount=10 keywordCount=10 fusedCount=10 fusionMs=0 elapsedMs=84",
+    "2026-11-15 20:14:01.368 [boundedElastic-6] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=0 minScore=0.5 elapsedMs=207",
+    "2026-11-15 20:14:01.589 [rag-retrieval-3] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=1 count=10 elapsedMs=7",
+    "2026-11-15 20:14:01.679 [rag-retrieval-4] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=1 count=10 elapsedMs=97",
+    "2026-11-15 20:14:01.680 [boundedElastic-6] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=1 vectorCount=10 keywordCount=10 fusedCount=10 fusionMs=0 elapsedMs=99",
+    "2026-11-15 20:14:01.863 [boundedElastic-6] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=2 minScore=0.5 elapsedMs=182",
+    "2026-11-15 20:14:10.349 [rag-retrieval-2] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=1 count=10 elapsedMs=11",
+    "2026-11-15 20:14:10.429 [rag-retrieval-1] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=1 count=10 elapsedMs=91",
+    "2026-11-15 20:14:10.431 [boundedElastic-4] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=1 vectorCount=10 keywordCount=10 fusedCount=10 fusionMs=0 elapsedMs=95",
+    "2026-11-15 20:14:10.632 [boundedElastic-4] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=2 minScore=0.5 elapsedMs=201",
+    "2026-11-15 20:14:15.310 [rag-retrieval-4] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=1 count=6 elapsedMs=11",
+    "2026-11-15 20:14:15.411 [rag-retrieval-3] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=1 count=10 elapsedMs=111",
+    "2026-11-15 20:14:15.411 [boundedElastic-6] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=1 vectorCount=10 keywordCount=6 fusedCount=10 fusionMs=0 elapsedMs=113",
+    "2026-11-15 20:14:15.610 [boundedElastic-6] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=5 minScore=0.5 elapsedMs=198",
+    "2026-11-15 20:14:28.797 [rag-retrieval-1] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=1 count=10 elapsedMs=11",
+    "2026-11-15 20:14:28.875 [rag-retrieval-2] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=1 count=10 elapsedMs=88",
+    "2026-11-15 20:14:28.875 [boundedElastic-4] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=1 vectorCount=10 keywordCount=10 fusedCount=10 fusionMs=0 elapsedMs=91",
+    "2026-11-15 20:14:29.049 [boundedElastic-4] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=4 minScore=0.5 elapsedMs=173",
+    "2026-11-15 20:14:32.888 [rag-retrieval-3] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=2 count=6 elapsedMs=6",
+    "2026-11-15 20:14:32.971 [rag-retrieval-4] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=2 count=10 elapsedMs=89",
+    "2026-11-15 20:14:32.972 [boundedElastic-6] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=2 vectorCount=10 keywordCount=6 fusedCount=10 fusionMs=0 elapsedMs=91",
+    "2026-11-15 20:14:33.165 [boundedElastic-6] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=1 minScore=0.5 elapsedMs=193",
+    "2026-11-15 20:14:46.829 [rag-retrieval-2] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=2 count=10 elapsedMs=11",
+    "2026-11-15 20:14:46.913 [rag-retrieval-1] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=2 count=10 elapsedMs=95",
+    "2026-11-15 20:14:46.914 [boundedElastic-4] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=2 vectorCount=10 keywordCount=10 fusedCount=10 fusionMs=0 elapsedMs=102",
+    "2026-11-15 20:14:47.117 [boundedElastic-4] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=6 minScore=0.5 elapsedMs=202",
+    "2026-11-15 20:14:53.036 [rag-retrieval-4] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=1 count=1 elapsedMs=6",
+    "2026-11-15 20:14:53.116 [rag-retrieval-3] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=1 count=10 elapsedMs=86",
+    "2026-11-15 20:14:53.117 [boundedElastic-6] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=1 vectorCount=10 keywordCount=1 fusedCount=10 fusionMs=0 elapsedMs=87",
+    "2026-11-15 20:14:53.310 [boundedElastic-6] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=1 minScore=0.5 elapsedMs=192",
+    "2026-11-15 20:15:00.529 [rag-retrieval-1] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=1 count=9 elapsedMs=7",
+    "2026-11-15 20:15:00.615 [rag-retrieval-2] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=1 count=10 elapsedMs=93",
+    "2026-11-15 20:15:00.615 [boundedElastic-4] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=1 vectorCount=10 keywordCount=9 fusedCount=10 fusionMs=0 elapsedMs=95",
+    "2026-11-15 20:15:00.810 [boundedElastic-4] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=4 minScore=0.5 elapsedMs=193",
+    "2026-11-15 20:15:07.622 [rag-retrieval-3] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=keyword knowledgeBaseId=1 count=10 elapsedMs=14",
+    "2026-11-15 20:15:07.711 [rag-retrieval-4] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG recall route=vector knowledgeBaseId=1 count=10 elapsedMs=103",
+    "2026-11-15 20:15:07.712 [boundedElastic-6] INFO  com.milanai.robot.service.impl.HybridRetrievalServiceImpl - RAG retrieval mode=hybrid knowledgeBaseId=1 vectorCount=10 keywordCount=10 fusedCount=10 fusionMs=0 elapsedMs=105",
+    "2026-11-15 20:15:07.890 [boundedElastic-6] INFO  com.milanai.robot.service.impl.RerankServiceImpl - RAG rerank mode=reranked candidateCount=10 selectedCount=2 minScore=0.5 elapsedMs=177"
+  ]
+}

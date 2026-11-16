@@ -39,5 +39,6 @@ public class RagProperties {
         private String apiKey;
         private int topN = 3;
         private int timeoutSeconds = 15;
+        private double minRelevanceScore;
     }
 }

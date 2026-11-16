@@ -9,6 +9,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 
@@ -19,6 +22,29 @@ import java.util.Optional;
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler({org.springframework.web.HttpRequestMethodNotSupportedException.class,
+            org.springframework.web.servlet.NoHandlerFoundException.class,
+            org.springframework.web.servlet.resource.NoResourceFoundException.class})
+    public ResponseEntity<Response<Object>> handleMissingEndpoint(Exception exception) {
+        org.springframework.web.ErrorResponse error = (org.springframework.web.ErrorResponse) exception;
+        return ResponseEntity.status(error.getStatusCode()).headers(error.getHeaders())
+                .body(Response.fail("HTTP_" + error.getStatusCode().value(), "请求的接口或方法不存在"));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Response<Object>> handleAccessDenied(HttpServletRequest request, AccessDeniedException e) {
+        log.warn("{} access denied", request.getRequestURI());
+        return ResponseEntity.status(403).body(Response.fail("FORBIDDEN", "无权执行此操作"));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Response<Object>> handleResponseStatus(HttpServletRequest request, ResponseStatusException e) {
+        String message = e.getReason() == null ? e.getStatusCode().toString() : e.getReason();
+        log.warn("{} request rejected with HTTP {}", request.getRequestURI(), e.getStatusCode().value());
+        return ResponseEntity.status(e.getStatusCode())
+                .body(Response.fail("HTTP_" + e.getStatusCode().value(), message));
+    }
 
     /**
      * 捕获自定义业务异常
@@ -37,7 +63,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler({ MethodArgumentNotValidException.class })
     @ResponseBody
-    public Response<Object> handleMethodArgumentNotValidException(HttpServletRequest request, MethodArgumentNotValidException e) {
+    public ResponseEntity<Response<Object>> handleMethodArgumentNotValidException(HttpServletRequest request, MethodArgumentNotValidException e) {
         // 参数错误异常码
         String errorCode = ResponseCodeEnum.PARAM_NOT_VALID.getErrorCode();
 
@@ -64,7 +90,7 @@ public class GlobalExceptionHandler {
 
         log.warn("{} request error, errorCode: {}, errorMessage: {}", request.getRequestURI(), errorCode, errorMessage);
 
-        return Response.fail(errorCode, errorMessage);
+        return ResponseEntity.badRequest().body(Response.fail(errorCode, errorMessage));
     }
 
 

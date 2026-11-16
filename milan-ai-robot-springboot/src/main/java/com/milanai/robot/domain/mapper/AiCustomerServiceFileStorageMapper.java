@@ -1,6 +1,5 @@
 package com.milanai.robot.domain.mapper;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -8,15 +7,31 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.milanai.robot.domain.dos.AiCustomerServiceFileStorageDO;
 
 import java.time.LocalDate;
-import java.util.Objects;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Select;
+import java.util.List;
 import org.apache.ibatis.annotations.Param;
 
 /**
  * @Description: AI 客服问答文件存储
  **/
 public interface AiCustomerServiceFileStorageMapper extends BaseMapper<AiCustomerServiceFileStorageDO> {
+
+    @Select("SELECT COALESCE(MAX(version_no), 0) FROM t_ai_customer_service_file_storage WHERE document_id = #{documentId}")
+    int selectMaxVersion(@Param("documentId") Long documentId);
+
+    @Select("SELECT f.id FROM t_ai_customer_service_file_storage f "
+            + "JOIN t_knowledge_document d ON d.id = f.document_id AND d.current_file_id = f.id "
+            + "WHERE f.knowledge_base_id = #{knowledgeBaseId} AND f.status = 3 AND f.publish_status = 'PUBLISHED' "
+            + "ORDER BY f.id")
+    List<Long> selectCurrentPublishedFileIds(@Param("knowledgeBaseId") Long knowledgeBaseId);
+
+    @Select("<script>SELECT f.*, d.title AS document_title FROM t_ai_customer_service_file_storage f "
+            + "JOIN t_knowledge_document d ON d.id = f.document_id AND d.current_file_id = f.id "
+            + "WHERE f.knowledge_base_id = #{knowledgeBaseId} AND f.status = 3 AND f.publish_status = 'PUBLISHED' "
+            + "AND f.id IN <foreach item='fileId' collection='fileIds' open='(' separator=',' close=')'>#{fileId}</foreach></script>")
+    List<AiCustomerServiceFileStorageDO> selectCurrentPublishedFiles(@Param("knowledgeBaseId") Long knowledgeBaseId,
+                                                                     @Param("fileIds") List<Long> fileIds);
 
     @Insert("""
             INSERT INTO t_ai_customer_service_file_storage
@@ -39,62 +54,15 @@ public interface AiCustomerServiceFileStorageMapper extends BaseMapper<AiCustome
     }
 
     default Page<AiCustomerServiceFileStorageDO> selectPageList(Long current, Long size, String fileName,
-                                                               LocalDate startDate, LocalDate endDate, Long kb) {
+                                                               LocalDate startDate, LocalDate endDate, Long kb,
+                                                               boolean includeDrafts) {
         return selectPage(new Page<>(current, size), Wrappers.<AiCustomerServiceFileStorageDO>lambdaQuery()
                 .eq(AiCustomerServiceFileStorageDO::getKnowledgeBaseId, kb)
+                .eq(!includeDrafts, AiCustomerServiceFileStorageDO::getPublishStatus, "PUBLISHED")
                 .like(StringUtils.isNotBlank(fileName), AiCustomerServiceFileStorageDO::getFileName, fileName)
                 .ge(startDate != null, AiCustomerServiceFileStorageDO::getCreateTime, startDate)
                 .lt(endDate != null, AiCustomerServiceFileStorageDO::getCreateTime, endDate)
                 .orderByDesc(AiCustomerServiceFileStorageDO::getCreateTime));
     }
 
-    /**
-     * 分页查询
-     *
-     * @param current   当前页
-     * @param size      每页数量
-     * @param fileName  文件名称（模糊查询）
-     * @param startDate 起始日期
-     * @param endDate   结束日期
-     * @return 分页结果
-     */
-    default Page<AiCustomerServiceFileStorageDO> selectPageList(Long current, Long size, String fileName,
-                                                               LocalDate startDate, LocalDate endDate) {
-        // 分页对象(查询第几页、每页多少数据)
-        Page<AiCustomerServiceFileStorageDO> page = new Page<>(current, size);
-
-        // 构建查询条件
-        LambdaQueryWrapper<AiCustomerServiceFileStorageDO> wrapper = Wrappers.<AiCustomerServiceFileStorageDO>lambdaQuery()
-                .like(StringUtils.isNotBlank(fileName), AiCustomerServiceFileStorageDO::getFileName, fileName) // like 模糊查询
-                .ge(Objects.nonNull(startDate), AiCustomerServiceFileStorageDO::getCreateTime, startDate) // 大于等于 startDate
-                .lt(Objects.nonNull(endDate), AiCustomerServiceFileStorageDO::getCreateTime, endDate) // 小于 endDate
-                .orderByDesc(AiCustomerServiceFileStorageDO::getCreateTime); // 按创建时间倒序
-
-        return selectPage(page, wrapper);
-    }
-
-    /**
-     * 根据文件 MD5 值查询，用于秒传 / 断点续传判断
-     *
-     * @param fileMd5 文件 MD5
-     * @return 文件记录，不存在时为 null
-     */
-    default AiCustomerServiceFileStorageDO selectByMd5(String fileMd5) {
-        return selectOne(Wrappers.<AiCustomerServiceFileStorageDO>lambdaQuery()
-                .eq(AiCustomerServiceFileStorageDO::getFileMd5, fileMd5));
-    }
-
-    /**
-     * 已上传分片数 +1。
-     * <p>
-     * 用 SQL 表达式自增而不是「先查再写」，是为了避免并发上传分片时读-改-写导致的计数丢失。
-     *
-     * @param id 文件记录 ID
-     * @return 影响行数
-     */
-    default int incrementUploadedChunks(Long id) {
-        return update(Wrappers.<AiCustomerServiceFileStorageDO>lambdaUpdate()
-                .eq(AiCustomerServiceFileStorageDO::getId, id)
-                .setSql("uploaded_chunks = uploaded_chunks + 1"));
-    }
 }

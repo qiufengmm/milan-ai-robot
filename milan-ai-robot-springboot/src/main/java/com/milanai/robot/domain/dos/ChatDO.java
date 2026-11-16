@@ -25,6 +25,8 @@ public class ChatDO {
     private Long id;
     private String uuid;
     private String summary;
+    private Long userId;
+    private Long knowledgeBaseId;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

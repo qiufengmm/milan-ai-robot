@@ -1,40 +1,44 @@
-import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
 
-// 统一在这里声明所有路由
 const routes = [
-    {
-        path: '/', // 路由地址
-        name: 'Index', // 命名路由
-        component: () => import('@/views/Index.vue'), // 对应组件
-        meta: { // meta 信息
-            title: '米兰AI 机器人首页' // 页面标题
-        }
-    },
-    {
-        path: '/chat/:chatId', // 路由地址
-        name: 'ChatPage', // 命名路由
-        component: () => import('@/views/ChatPage.vue'), // 对应组件
-        meta: { // meta 信息
-            title: '对话聊天页' // 页面标题
-        }
-    },
-    {
-        path: '/customer-service/chat', // 路由地址
-        name: 'CustomerServiceChatPage', // 命名路由
-        component: () => import('@/views/CustomerServiceChatPage.vue'), // 对应组件
-        meta: { // meta 信息
-            title: '智能客服聊天页' // 页面标题
-        }
-    }
+  { path: '/', redirect: { name: 'CustomerServiceChatPage' } },
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/LoginPage.vue'),
+    meta: { public: true, title: '登录 · 米兰企业知识库' },
+  },
+  {
+    path: '/customer-service/chat/:chatId?',
+    name: 'CustomerServiceChatPage',
+    component: () => import('@/views/CustomerServiceChatPage.vue'),
+    meta: { requiresAuth: true, title: '员工知识问答' },
+  },
+  {
+    path: '/admin/access',
+    name: 'AdminAccessPage',
+    component: () => import('@/views/AdminAccessPage.vue'),
+    meta: { requiresAuth: true, administrator: true, title: '账号与知识库授权' },
+  },
+  { path: '/:pathMatch(.*)*', redirect: { name: 'CustomerServiceChatPage' } },
 ]
 
-// 创建路由
-const router = createRouter({
-    // 指定路由策略，hash 模式指的是 URL 的路径是通过 hash 符号（#）进行标识
-    history: createWebHashHistory(),
-    // routes: routes 的缩写
-    routes, 
+const router = createRouter({ history: createWebHashHistory(), routes })
+
+router.beforeEach(async (to) => {
+  document.title = to.meta.title || '米兰企业知识库'
+  const auth = useAuthStore()
+  if (to.meta.public) {
+    if (to.query.expired) auth.clear()
+    const user = auth.user || await auth.initialize()
+    if (user) return { name: 'CustomerServiceChatPage' }
+    return true
+  }
+  const user = await auth.initialize()
+  if (!user) return { name: 'Login', query: { redirect: to.fullPath } }
+  if (to.meta.administrator && user.role !== 'ADMIN') return { name: 'CustomerServiceChatPage' }
+  return true
 })
 
-// ES6 模块导出语句，它用于将 router 对象导出，以便其他文件可以导入和使用这个对象
 export default router

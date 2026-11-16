@@ -17,6 +17,9 @@ import java.time.LocalDateTime;
 @Builder
 public class FindMarkdownFilePageListRspVO {
     private Long knowledgeBaseId;
+    private Long documentId;
+    private Integer versionNo;
+    private String publishStatus;
     private String indexStatus;
     /**
      * 文件 ID

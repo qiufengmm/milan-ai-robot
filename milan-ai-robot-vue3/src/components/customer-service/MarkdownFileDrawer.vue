@@ -1,7 +1,54 @@
 <template>
-  <!-- 抽屉：客服问答文件管理 -->
-  <a-drawer width="80%" :title="`${knowledgeBase.name} · 文件管理`" placement="right" :open="open" @close="handleClose">
+  <!-- 企业知识库资料管理 -->
+  <a-drawer width="80%" :title="`${knowledgeBase.name || '企业知识库'} · 资料管理`" placement="right" :open="open" @close="handleClose">
     <a-alert message="文件处理完成且索引同步后才可完整检索。失败或等待同步的文件可在处理后重建索引。" type="info" show-icon class="mb-5" />
+    <a-card v-if="canEdit && hasKnowledgeBase" title="资料版本与发布" class="mb-5">
+      <div class="mb-4 flex flex-wrap items-center gap-3">
+        <span class="text-sm text-slate-600">选择逻辑资料</span>
+        <a-select v-model:value="selectedDocumentId" :options="documentOptions" allow-clear placeholder="查看或选择要替换的资料" class="min-w-64" :disabled="uploading" @change="selectDocument" />
+        <a-select v-if="selectedDocument" v-model:value="selectedVersionId" :options="versionOptions" class="min-w-64" placeholder="选择版本" />
+        <a-button v-if="selectedDocument && selectedVersionId" @click="loadPreview">查看解析片段</a-button>
+        <a-button v-if="canPublishSelected" type="primary" :loading="publishing" @click="publishSelected">发布所选版本</a-button>
+        <a-button v-if="canWithdrawSelected" danger :loading="publishing" @click="withdrawSelected">撤回当前版本</a-button>
+      </div>
+      <p v-if="selectedDocument" class="text-sm text-slate-500">
+        当前发布版本：{{ selectedDocument.currentFileId || '无' }}。上传时保留逻辑资料选择会创建下一版本；清空选择则新建资料。
+      </p>
+      <div v-if="previewChunks.length" class="mt-3 space-y-2">
+        <div v-for="chunk in previewChunks" :key="chunk.chunkId" class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm whitespace-pre-wrap">{{ chunk.content }}</div>
+      </div>
+      <a-empty v-else-if="previewLoaded" description="没有解析片段" />
+    </a-card>
+    <a-card v-if="canEdit && hasKnowledgeBase" title="员工反馈" class="mb-5" :loading="feedbackLoading">
+      <a-empty v-if="!feedbackLoading && !feedbackQueue.length" description="当前知识库暂无员工反馈" />
+      <div v-else class="space-y-4">
+        <article v-for="item in feedbackQueue" :key="item.id" class="rounded-xl border border-slate-200 p-4">
+          <div class="mb-2 flex flex-wrap items-center gap-2 text-sm">
+            <a-tag :color="item.status === 'OPEN' ? 'orange' : 'green'">{{ item.status === 'OPEN' ? '待处理' : '已处理' }}</a-tag>
+            <span class="text-slate-500">{{ item.reporterDisplayName || '员工' }} · {{ item.updateTime || item.createTime }}</span>
+          </div>
+          <p class="mb-1 text-sm font-medium">员工问题：{{ item.userQuestion || '未记录原问题' }}</p>
+          <p class="mb-2 whitespace-pre-wrap break-words text-sm text-slate-700">反馈说明：{{ item.description }}</p>
+          <details class="mb-3 text-sm">
+            <summary class="cursor-pointer text-slate-600">查看对应回答与来源</summary>
+            <p class="mt-2 whitespace-pre-wrap break-words text-slate-700">{{ item.answerContent }}</p>
+            <div v-for="(source, index) in item.sources || []" :key="`${source.chunkId || source.fileId}-${index}`" class="mt-2 rounded-lg bg-slate-50 p-3">
+              <div class="mb-1 flex flex-wrap items-center gap-2 font-medium">
+                <span>{{ source.title || source.fileName || '知识库资料' }}</span>
+                <a-tag>v{{ source.versionNo || '-' }}</a-tag>
+                <a-tag v-if="source.historical" color="orange">历史版本</a-tag>
+              </div>
+              <p class="mb-0 whitespace-pre-wrap break-words text-slate-600">{{ source.excerpt }}</p>
+            </div>
+          </details>
+          <p v-if="item.status === 'RESOLVED'" class="mb-0 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">处理说明：{{ item.resolutionNote }}</p>
+          <div v-else class="flex flex-wrap items-start gap-2">
+            <a-textarea v-model:value="item.resolutionDraft" :maxlength="500" :rows="2" show-count placeholder="写明已核查或更新的处理结果" class="max-w-2xl" />
+            <a-button type="primary" :loading="item.resolving" @click="resolveFeedbackItem(item)">标记已处理</a-button>
+          </div>
+        </article>
+      </div>
+    </a-card>
     <!-- 搜索区域 -->
     <div class="mb-5">
       <a-form layout="inline" :model="formState">
@@ -12,16 +59,16 @@
         <a-form-item label="创建时间：" name="startEndDate">
           <a-range-picker v-model:value="formState.startEndDate" />
         </a-form-item>
-        <a-button type="primary" :icon="h(SearchOutlined)" class="mr-3" @click="handleSearch">查询</a-button>
-        <a-button :icon="h(RedoOutlined)" @click="handleReset">重置</a-button>
+        <a-button type="primary" :disabled="!hasKnowledgeBase" :icon="h(SearchOutlined)" class="mr-3" @click="handleSearch">查询</a-button>
+        <a-button :disabled="!hasKnowledgeBase" :icon="h(RedoOutlined)" @click="handleReset">重置</a-button>
       </a-form>
       <!-- 分割线 -->
       <a-divider />
     </div>
 
     <div class="flex gap-3 mb-5">
-      <a-button type="primary" :disabled="uploading" :icon="h(UploadOutlined)" @click="triggerFileUpload">上传问答文件</a-button>
-      <a-button :loading="reindexing" @click="handleReindex">重建当前库索引</a-button>
+      <a-button v-if="canEdit" type="primary" :disabled="uploading || !hasKnowledgeBase" :icon="h(UploadOutlined)" @click="triggerFileUpload">上传资料</a-button>
+      <a-button v-if="canEdit" :disabled="!hasKnowledgeBase" :loading="reindexing" @click="handleReindex">重建当前库索引</a-button>
     </div>
 
     <!-- 保留视频格式用于验证大文件分片/续传；视频无法向量化，处理结果会显示失败。 -->
@@ -37,9 +84,9 @@
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'action'">
           <span>
-            <a-button @click="showEditMarkdownModel(record)">编辑</a-button>
-            <a-divider type="vertical" />
-            <a-button danger @click="showDeleteMarkdownModel(record.id)">删除</a-button>
+            <a-button v-if="canEdit" :disabled="!hasKnowledgeBase" @click="showEditMarkdownModel(record)">编辑</a-button>
+            <a-divider v-if="canEdit" type="vertical" />
+            <a-button v-if="canEdit" danger :disabled="!hasKnowledgeBase" @click="showDeleteMarkdownModel(record.id)">删除草稿</a-button>
           </span>
         </template>
         <template v-else-if="column.key === 'status'">
@@ -149,7 +196,7 @@
       size="large"
       block
       :loading="uploading"
-      :disabled="uploading"
+      :disabled="uploading || !hasKnowledgeBase"
       @click="startUpload"
     >
       <template #icon>
@@ -170,6 +217,8 @@ import StatusTag from './StatusTag.vue'
 import IndexStatusTag from './IndexStatusTag.vue'
 import { captureUploadContext, uploadAvailability } from './knowledgeScope.js'
 import { reindexKnowledgeBase } from '@/api/knowledgeBase'
+import { listDocuments, publishDocumentVersion, previewDocumentChunks, withdrawDocument } from '@/api/documents'
+import { listKnowledgeBaseFeedback, resolveFeedback } from '@/api/feedback'
 import {
   findMarkdownFilePageList,
   checkFile,
@@ -196,11 +245,16 @@ const props = defineProps({
   },
   knowledgeBase: {
     type: Object,
-    default: () => ({ id: 1, name: '米兰数码商城' }),
+    required: true,
   },
+  canEdit: { type: Boolean, default: true },
 })
 
-const emit = defineEmits(['update:open', 'upload-busy'])
+const emit = defineEmits(['update:open', 'upload-busy', 'published'])
+const hasKnowledgeBase = computed(() => {
+  const id = Number(props.knowledgeBase.id)
+  return Number.isSafeInteger(id) && id > 0
+})
 
 // 表格加载状态
 const loading = ref(false)
@@ -279,6 +333,12 @@ const pagination = computed(() => ({
 let listRequest = 0
 const renderTableData = (pageNo, size) => {
   const requestId = ++listRequest
+  if (!hasKnowledgeBase.value) {
+    dataSource.value = []
+    total.value = 0
+    loading.value = false
+    return Promise.resolve()
+  }
   const ownerId = props.knowledgeBase.id
   // 设置 a-table 组件加载状态为 true
   loading.value = true
@@ -291,7 +351,7 @@ const renderTableData = (pageNo, size) => {
   return findMarkdownFilePageList(pageNo, size, formState.fileName, startDateStr, endDateStr, ownerId)
     .then((res) => {
       if (requestId !== listRequest || ownerId !== props.knowledgeBase.id) return
-      dataSource.value = (res.data.data || []).filter(record => Number(record.knowledgeBaseId ?? 1) === Number(ownerId))
+      dataSource.value = (res.data.data || []).filter(record => Number(record.knowledgeBaseId) === Number(ownerId))
       current.value = res.data.current
       total.value = res.data.total
     })
@@ -310,6 +370,8 @@ watch(
   (val) => {
     if (val) {
       renderTableData(current.value, pageSize.value)
+      loadDocuments().catch(() => {})
+      loadFeedbackQueue().catch(() => {})
     }
   }
 )
@@ -326,10 +388,53 @@ watch(() => props.knowledgeBase.id, () => {
   editMarkdownModelOpen.value = false
   if (!uploading.value) uploadFileInfoModelOpen.value = false
   if (props.open) renderTableData(1, pageSize.value)
+  selectedDocumentId.value = undefined
+  selectedVersionId.value = undefined
+  documents.value = []
+  if (props.open) loadDocuments().catch(() => {})
+  if (props.open) loadFeedbackQueue().catch(() => {})
 })
 
 const reindexing = ref(false)
+const feedbackQueue = ref([])
+const feedbackLoading = ref(false)
+let feedbackRequest = 0
+const loadFeedbackQueue = async () => {
+  if (!props.canEdit || !hasKnowledgeBase.value) {
+    feedbackQueue.value = []
+    return
+  }
+  const request = ++feedbackRequest
+  const ownerId = Number(props.knowledgeBase.id)
+  feedbackLoading.value = true
+  try {
+    const response = await listKnowledgeBaseFeedback(ownerId)
+    if (request === feedbackRequest && ownerId === Number(props.knowledgeBase.id)) {
+      feedbackQueue.value = (response.data.data || []).map(item => ({ ...item, resolutionDraft: item.resolutionNote || '', resolving: false }))
+    }
+  } finally {
+    if (request === feedbackRequest) feedbackLoading.value = false
+  }
+}
+
+const resolveFeedbackItem = async (item) => {
+  const resolutionNote = String(item.resolutionDraft || '').trim()
+  if (!resolutionNote || resolutionNote.length > 500) {
+    message.warning('处理说明须为1至500个字符')
+    return
+  }
+  item.resolving = true
+  try {
+    await resolveFeedback(item.id, resolutionNote)
+    await loadFeedbackQueue()
+    message.success('反馈已标记为已处理')
+  } finally {
+    item.resolving = false
+  }
+}
+
 const handleReindex = async () => {
+  if (!props.canEdit || !hasKnowledgeBase.value) return
   const ownerId = props.knowledgeBase.id
   reindexing.value = true
   try {
@@ -376,7 +481,7 @@ const fileInput = ref(null)
 
 // 触发文件选择对话框
 const triggerFileUpload = () => {
-  if (!uploading.value) fileInput.value?.click()
+  if (props.canEdit && hasKnowledgeBase.value && !uploading.value) fileInput.value?.click()
 }
 
 // 是否展示上传文件模态框
@@ -391,6 +496,77 @@ const fileMd5 = ref('')
 // 是否正在上传中
 const uploading = ref(false)
 const uploadOwnerName = ref('')
+const selectedDocumentId = ref()
+const selectedVersionId = ref()
+const documents = ref([])
+const previewChunks = ref([])
+const previewLoaded = ref(false)
+const publishing = ref(false)
+const selectedDocument = computed(() => documents.value.find(item => Number(item.id) === Number(selectedDocumentId.value)) || null)
+const documentOptions = computed(() => documents.value.map(item => ({ value: Number(item.id), label: item.title })))
+const versionOptions = computed(() => (selectedDocument.value?.versions || []).map(item => ({
+  value: Number(item.id),
+  label: `v${item.versionNo} · ${item.fileName} · ${item.publishStatus || 'DRAFT'} · ${statusLabel(item.status)} / ${item.indexStatus}`,
+})))
+const selectedVersion = computed(() => selectedDocument.value?.versions?.find(item => Number(item.id) === Number(selectedVersionId.value)) || null)
+const canPublishSelected = computed(() => Boolean(props.canEdit && hasKnowledgeBase.value && selectedVersion.value
+  && Number(selectedVersion.value.status) === 3 && selectedVersion.value.indexStatus === 'SYNCED'
+  && selectedVersion.value.publishStatus !== 'PUBLISHED' && !publishing.value))
+const canWithdrawSelected = computed(() => Boolean(props.canEdit && hasKnowledgeBase.value && selectedDocument.value?.currentFileId
+  && Number(selectedDocument.value.currentFileId) === Number(selectedVersionId.value) && !publishing.value))
+
+function statusLabel(status) {
+  return ({ 0: '上传中', 1: '待处理', 2: '处理中', 3: '已完成', 4: '失败' })[Number(status)] || '未知'
+}
+
+const loadDocuments = async () => {
+  if (!props.canEdit || !hasKnowledgeBase.value) return
+  const ownerId = Number(props.knowledgeBase.id)
+  const response = await listDocuments(ownerId)
+  if (ownerId !== Number(props.knowledgeBase.id)) return
+  documents.value = response.data.data || []
+  if (!documents.value.some(item => Number(item.id) === Number(selectedDocumentId.value))) {
+    selectedDocumentId.value = undefined
+    selectedVersionId.value = undefined
+  }
+}
+
+const selectDocument = () => {
+  previewChunks.value = []
+  previewLoaded.value = false
+  selectedVersionId.value = selectedDocument.value?.currentFileId
+      || selectedDocument.value?.versions?.[0]?.id
+      || undefined
+}
+
+const loadPreview = async () => {
+  if (!selectedDocument.value || !selectedVersionId.value) return
+  const response = await previewDocumentChunks(selectedDocument.value.id, selectedVersionId.value)
+  previewChunks.value = response.data.data || []
+  previewLoaded.value = true
+}
+
+const publishSelected = async () => {
+  if (!selectedDocument.value || !selectedVersionId.value || !canPublishSelected.value) return
+  publishing.value = true
+  try {
+    await publishDocumentVersion(selectedDocument.value.id, selectedVersionId.value)
+    await loadDocuments()
+    emit('published')
+    message.success('资料版本已发布，新问题将使用该版本')
+  } finally { publishing.value = false }
+}
+
+const withdrawSelected = async () => {
+  if (!selectedDocument.value || !canWithdrawSelected.value) return
+  publishing.value = true
+  try {
+    await withdrawDocument(selectedDocument.value.id)
+    await loadDocuments()
+    emit('published')
+    message.success('当前版本已撤回')
+  } finally { publishing.value = false }
+}
 watch(uploading, busy => emit('upload-busy', busy), { flush: 'sync' })
 
 // 上传进度
@@ -482,7 +658,7 @@ const handleFileSelect = (event) => {
   // （不选同一个文件时路径没变，change 不会触发，用户会觉得"点了没反应"）
   event.target.value = ''
 
-  if (!file || uploading.value) {
+  if (!file || uploading.value || !props.canEdit || !hasKnowledgeBase.value) {
     return
   }
 
@@ -507,10 +683,11 @@ const handleFileSelect = (event) => {
 // 开始上传：秒传检查 -> 并发分批上传分片 -> 合并
 const startUpload = async () => {
   // 前置校验
-  if (uploading.value || !selectedFile.value || !fileMd5.value) return
+  if (uploading.value || !selectedFile.value || !fileMd5.value || !props.canEdit || !hasKnowledgeBase.value) return
 
   // Every request in this upload uses this immutable owner/file/hash snapshot.
-  const upload = captureUploadContext({ file: selectedFile.value, fileMd5: fileMd5.value, knowledgeBaseId: props.knowledgeBase.id })
+  const upload = captureUploadContext({ file: selectedFile.value, fileMd5: fileMd5.value,
+    knowledgeBaseId: props.knowledgeBase.id, documentId: selectedDocumentId.value })
   uploadOwnerName.value = props.knowledgeBase.name
 
   uploading.value = true
@@ -583,6 +760,7 @@ const startUpload = async () => {
         formData.append('fileName', upload.file.name)
         formData.append('fileSize', upload.file.size)
         formData.append('knowledgeBaseId', upload.knowledgeBaseId)
+        if (upload.documentId !== null) formData.append('documentId', upload.documentId)
         formData.append('chunkNumber', chunkIndex)
         formData.append('totalChunks', chunks)
 
@@ -631,6 +809,10 @@ const startUpload = async () => {
 
     // 重新渲染列表数据
     if (upload.knowledgeBaseId === props.knowledgeBase.id) renderTableData(1, pageSize.value)
+    if (upload.knowledgeBaseId === props.knowledgeBase.id) {
+      loadDocuments().catch(() => {})
+      emit('published')
+    }
   } catch (error) {
     console.error('上传失败:', error)
     uploadStatus.value = 'exception'
@@ -645,10 +827,11 @@ const deleteMarkdownModelOpen = ref(false)
 
 // 被删除的文件记录 ID
 const deleteMarkdownId = ref(null)
-const deleteKnowledgeBaseId = ref(1)
+const deleteKnowledgeBaseId = ref(null)
 
 // 展示 “删除问答文件” 确认框
 const showDeleteMarkdownModel = (id) => {
+  if (!props.canEdit || !hasKnowledgeBase.value) return
   // 展示确认框
   deleteMarkdownModelOpen.value = true
   // 保存被删除的文件记录 ID
@@ -658,6 +841,7 @@ const showDeleteMarkdownModel = (id) => {
 
 // 执行删除。force 为 true 表示强制删除（跳过「处理中不允许删除」的限制）
 const doDelete = (id, force, ownerId) => {
+  if (!props.canEdit || !hasKnowledgeBase.value || Number(ownerId) !== Number(props.knowledgeBase.id)) return
   deleteBtnLoading.value = true
 
   return deleteMarkdownFile(id, force, { silent: true }, ownerId)
@@ -706,7 +890,7 @@ const editMarkdownRecord = reactive({
   fileSize: '',
   status: null,
   indexStatus: 'NOT_READY',
-  knowledgeBaseId: 1,
+  knowledgeBaseId: null,
   createTime: '',
   updateTime: '',
   remark: '',
@@ -714,15 +898,19 @@ const editMarkdownRecord = reactive({
 
 // 展示 “编辑问答文件” 模态框
 const showEditMarkdownModel = (record) => {
+  if (!props.canEdit || !hasKnowledgeBase.value) return
+  if (record.knowledgeBaseId != null && Number(record.knowledgeBaseId) !== Number(props.knowledgeBase.id)) return
   // 展示模态框
   editMarkdownModelOpen.value = true
   // 保存被编辑的文件记录（record 里正好是表单需要的这 7 个字段）
-  Object.assign(editMarkdownRecord, record, { knowledgeBaseId: record.knowledgeBaseId ?? props.knowledgeBase.id })
+  Object.assign(editMarkdownRecord, record, { knowledgeBaseId: Number(props.knowledgeBase.id) })
 }
 
 // 编辑模态框 “提交” 按钮事件
 const handleEditMarkdownModelOk = () => {
-  const ownerId = editMarkdownRecord.knowledgeBaseId ?? props.knowledgeBase.id
+  if (!props.canEdit || !hasKnowledgeBase.value) return
+  const ownerId = editMarkdownRecord.knowledgeBaseId
+  if (Number(ownerId) !== Number(props.knowledgeBase.id)) return
   editBtnLoading.value = true
 
   updateMarkdownFile({ ...editMarkdownRecord }, ownerId)

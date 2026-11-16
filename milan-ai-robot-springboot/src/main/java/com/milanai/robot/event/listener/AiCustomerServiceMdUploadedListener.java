@@ -100,6 +100,9 @@ public class AiCustomerServiceMdUploadedListener {
                 ownedMetadata.put("mdStorageId", id);
                 ownedMetadata.put("knowledge_base_id", owner.getKnowledgeBaseId().toString());
                 if (owner.getFileName() != null) ownedMetadata.put("originalFileName", owner.getFileName());
+                if (owner.getDocumentId() != null) ownedMetadata.put("documentId", owner.getDocumentId().toString());
+                if (owner.getVersionNo() != null) ownedMetadata.put("versionNo", owner.getVersionNo());
+                if (owner.getPublishStatus() != null) ownedMetadata.put("publishStatus", owner.getPublishStatus());
                 // 读取文件
                 org.springframework.core.io.Resource resource = new FileSystemResource(filePath);
 

@@ -40,7 +40,10 @@ public class FindChatHistoryMessagePageListRspVO {
     /**
      * 推理内容
      */
-    private String reasoning;
+
+    private String status;
+
+    private String errorCode;
 
 }
 
